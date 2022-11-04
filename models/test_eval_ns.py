@@ -9,49 +9,31 @@ import matplotlib.patches as patches
 
 images, captions, target_bb, objdet_bb, _, sentemb_vec = saveload('load','../dataset_dir/img_cap_bb_mask_matrix_20000',1)
 
-upsampany = True
-if upsampany:
-    anyidx = (np.argmax(sentemb_vec[:,:20],axis=1)==3)
-    otheridx = anyidx^True
-    idx = np.arange(len(anyidx))[anyidx]
-    randidx = np.random.choice(np.arange(np.sum(anyidx)),np.sum(anyidx), replace=False)
+gt_bb = np.copy(target_bb)
+detclass = np.arange(20)
+multidet = np.delete(detclass, np.array([2,4,16,17,19, 6, 5]))
 
-    anyobj = objdet_bb[anyidx]
-    anycap = sentemb_vec[anyidx]
-    anygt = target_bb[anyidx]
+for det in multidet:
+    idx = np.argmax(sentemb_vec[:,:20],axis=1)==det
+    bbidx = np.arange(len(target_bb))[idx]
 
-    newobj = []
-    newcap = []
-    newgt = []
+    anyobj = objdet_bb[idx]
+    anycap = sentemb_vec[idx]
+
+    objroi = np.argmax(anycap[:,20:],axis=1)
+
     for n in range(len(anyobj)):
-        objs = []
-        caps = []
-        gts = []
-        solns = np.argmax(anyobj[n,:,5:],axis=1) == np.argmax(anycap[n,20:])
-        for s in np.arange(20)[solns]:
-            objs.append(anyobj[n])
-            caps.append(anycap[n])
-            gts.append(np.pad(anyobj[n,s][None,:], ((0,19),(0,0))))
+        gtidx = np.argmax(anyobj[n,:,5:],axis=1) == objroi[n]
+        gt_bb[bbidx[n]] = anyobj[n] * gtidx[:,None]
 
-        newobj.append(np.array(objs))
-        newcap.append(np.array(caps))
-        newgt.append(np.array(gts))
-    newobj = np.concatenate(newobj,axis=0)[randidx]
-    newcap = np.concatenate(newcap,axis=0)[randidx]
-    newgt = np.concatenate(newgt,axis=0)[randidx]
-
-
-    objdet_bb = np.concatenate([objdet_bb[otheridx], newobj],axis=0)
-    sentemb_vec = np.concatenate([sentemb_vec[otheridx], newcap],axis=0)
-    target_bb = np.concatenate([target_bb[otheridx], newgt],axis=0)
 
 objdet_norm_bb = np.concatenate([objdet_bb[:,:,:4]/256.0, objdet_bb[:,:,4:]],axis=2)
 target_norm_bb = np.concatenate([target_bb[:,:,:4]/256.0, target_bb[:,:,4:]],axis=2)
 
-traindata, valdata, testdata = train_val_test_split(images, captions, target_norm_bb, objdet_norm_bb, sentemb_vec)
-[tr_img, tr_cap, tr_out, tr_bb, tr_emb] = traindata
-[val_img, val_cap, val_out, val_bb, val_emb] = valdata
-[ts_img, ts_cap, ts_out, ts_bb, ts_emb] = testdata
+traindata, valdata, testdata = train_val_test_split(gt_bb, captions, target_norm_bb, objdet_norm_bb, sentemb_vec)
+[tr_gt, _, tr_out, tr_bb, tr_emb] = traindata
+[val_gt, _, val_out, val_bb, val_emb] = valdata
+[ts_gt, _, ts_out, ts_bb, ts_emb] = testdata
 
 # reshape bb and target
 tr_bb_rs, val_bb_rs,ts_bb_rs = np.reshape(tr_bb, (len(tr_bb),-1)), np.reshape(val_bb, (len(val_bb),-1)), np.reshape(ts_bb, (len(ts_bb),-1))
@@ -82,8 +64,13 @@ def custom_loss(y_true, y_pred):
     # bc_loss = tf.keras.metrics.binary_crossentropy(y_true[:,:20][idx], y_pred[:,:20][idx], from_logits=False)
     # cat_loss = tf.keras.metrics.binary_crossentropy(y_true[:,20:][idx], y_pred[:,20:][idx], from_logits=False)
 
+    dets = np.argmax(y_true[:,:20])
+    anyidx = dets == 3
+    mask = y_pred[:,20:]
+
+
     bc_loss = tf.keras.metrics.binary_crossentropy(y_true[:,:20], y_pred[:,:20], from_logits=False)
-    cat_loss = tf.keras.metrics.binary_crossentropy(y_true[:,20:], y_pred[:,20:], from_logits=False)
+    cat_loss = tf.keras.metrics.categorical_crossentropy(y_true[:,20:], y_pred[:,20:], from_logits=False)
     loss = tf.reduce_mean(bc_loss + cat_loss)
     return loss
 
@@ -91,7 +78,7 @@ def custom_loss(y_true, y_pred):
 nemb = 64
 nhid = 64
 trainwithcaptions = True
-exptname = 'upany{}_classbb_20det_1000exp_bb_clsblb_{}cap_1hid_concat_{}_{}N_bincross'.format(upsampany, trainwithcaptions, nemb, nhid)
+exptname = 'gtany_classbb_20det_1000exp_bb_clsblb_{}cap_1hid_concat_{}_{}N_bincross'.format(trainwithcaptions, nemb, nhid)
 
 class SimpleDense(tf.keras.Model):
     def __init__(self):
@@ -120,7 +107,7 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 #loss_fn = [tf.keras.losses.BinaryCrossentropy(), tf.keras.losses.CategoricalCrossentropy()] #tf.keras.losses.MeanSquaredError()
 loss_fn = custom_loss #tf.keras.losses.MeanSquaredError()
 
-epochs = 20
+epochs = 10
 model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=True)
 if trainwithcaptions:
     history = model.fit(x=[tr_bb_rs,tr_emb],y=tf.concat([tr_out_rs, tr_cls_id],axis=1),
@@ -132,7 +119,7 @@ else:
                         epochs=epochs, batch_size=64, validation_split=0.0, shuffle=True)
 
 print(model.summary())
-model.save_weights("train_ns_bb_cls_model_weights.h5")
+#model.save_weights("train_ns_bb_cls_model_weights.h5")
 
 
 # train data
@@ -141,7 +128,7 @@ pred_tr_out = model.predict([tr_bb_rs,tr_emb])
 [pred_tr_score, pred_tr_cls] = pred_tr_out[:,:20], pred_tr_out[:,20:]
 pred_tr_bbcap = (tr_bb[:,:,:4] * (pred_tr_score> 0.5)[:,:,None]) * 256.0
 train_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=tr_out_rs, y_pred=pred_tr_score, from_logits=False))
-#create_output_txt(gdt=tr_out, predt=pred_tr_bbcap, confi=pred_tr_score,gd_cls=tr_cls_id,pred_cls=pred_tr_cls,directory='ns_cls_any/train_bb_cap')
+#create_output_txt(gdt=tr_out, predt=pred_tr_bbcap, confi=pred_tr_score,gd_cls=tr_cls_id,pred_cls=pred_tr_cls,directory='ns_cls_gtany/train_bb_cap')
 #
 # # train data
 val_out[:,:,:4] *= 256.0
@@ -149,22 +136,22 @@ pred_val_out = model.predict([val_bb_rs,val_emb])
 [pred_val_score, pred_val_cls] = pred_val_out[:,:20], pred_val_out[:,20:]
 pred_val_bbcap = (val_bb[:,:,:4] * (pred_val_score> 0.5)[:,:,None]) * 256.0
 val_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=val_out_rs, y_pred=pred_val_score, from_logits=False))
-#create_output_txt(gdt=val_out, predt=pred_val_bbcap, confi=pred_val_score,gd_cls=val_cls_id,pred_cls=pred_val_cls, directory='ns_cls_any/val_bb_cap')
+#create_output_txt(gdt=val_out, predt=pred_val_bbcap, confi=pred_val_score,gd_cls=val_cls_id,pred_cls=pred_val_cls, directory='ns_cls_gtany/val_bb_cap')
 
 # test with both inputs
 ts_out[:,:,:4] *= 256.0
 pred_ts_out = model.predict([ts_bb_rs,ts_emb])
 [pred_ts_score, pred_ts_cls] = pred_ts_out[:,:20], pred_ts_out[:,20:]
-pred_ts_bbcap = (ts_bb[:,:,:4] * (pred_ts_score> 0.5)[:,:,None]) * 256.0
+ts_emb = (ts_bb[:,:,:4] * (pred_ts_score> 0.5)[:,:,None]) * 256.0
 test_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=ts_out_rs, y_pred=pred_ts_score, from_logits=False))
-#create_output_txt(gdt=ts_out, predt=pred_ts_bbcap, confi=pred_ts_score,gd_cls=ts_cls_id,pred_cls=pred_ts_cls, directory='ns_cls_any/test_bb_cap')
+#create_output_txt(gdt=ts_gt, predt=pred_ts_bbcap, confi=pred_ts_score,gd_cls=ts_cls_id,pred_cls=pred_ts_cls, directory='ns_cls_gtany/test_bb_cap')
 
 # test with bb but no captions
 pred_ts_out_npcap = model.predict([ts_bb_rs,np.zeros_like(ts_emb)])
 [pred_ts_score_nocap, pred_ts_cls_nocap] = pred_ts_out_npcap[:,:20], pred_ts_out_npcap[:,20:]
 pred_ts_bb = (ts_bb[:,:,:4] * (pred_ts_score_nocap> 0.5)[:,:,None]) * 256.0
 test_bcloss_nocap = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=ts_out_rs, y_pred=pred_ts_score_nocap, from_logits=False))
-#create_output_txt(gdt=ts_out, predt=pred_ts_bb, confi=pred_ts_score_nocap,gd_cls=ts_cls_id,pred_cls=pred_ts_cls_nocap, directory='ns_cls_any/test_bb_only')
+#create_output_txt(gdt=ts_out, predt=pred_ts_bb, confi=pred_ts_score_nocap,gd_cls=ts_cls_id,pred_cls=pred_ts_cls_nocap, directory='ns_cls_gtany/test_bb_only')
 
 #print(testmap, testmapnocap)
 
@@ -184,9 +171,10 @@ ax[0,0].set_xlabel('Epoch')
 for j in range(2):
     for i in range(6):
         #plt.subplot(2,4,i+2)
-        #plt.axis([0,256,0,256])
-        ax[j,i+1].imshow(ts_img[i])
-        ax[j,i+1].set_title(ts_cap[i], fontsize=8)
+        ax[j,i+1].set_xlim([0,256])
+        ax[j, i + 1].set_ylim([0, 256])
+        #ax[j,i+1].imshow(ts_img[i])
+        #ax[j,i+1].set_title(ts_cap[i], fontsize=8)
         ax[j, i + 1].set_xticks([])
         ax[j, i + 1].set_yticks([])
 
@@ -206,4 +194,4 @@ for j in range(2):
 
 plt.tight_layout()
 plt.show()
-f.savefig('../Fig/'+exptname+'.png')
+#f.savefig('../Fig/'+exptname+'.png')

@@ -24,7 +24,7 @@ val_cls_id = val_emb[:,:20]
 ts_cls_id = ts_emb[:,:20]
 
 nemb = 64
-nhid = 128
+nhid = 64
 class GetTop(tf.keras.Model):
     def __init__(self):
         super(GetTop, self).__init__()
@@ -49,6 +49,7 @@ class GetTop(tf.keras.Model):
 
 evalmodel = GetTop()
 evalmodel.build([(None,500),(None,40)])
+#evalmodel.load_weights("train_ns_bb_cls_model_weights.h5")
 evalmodel.summary()
 [rfr,bbmask,detcl] = evalmodel.predict([tr_bb_rs,tr_emb])
 
@@ -81,14 +82,17 @@ for p in range(3):
     plt.figure(figsize=(6, 6))
     xs = alltrans[p][:,0]
     ys = alltrans[p][:,1]
-    plt.scatter(xs,ys, c = np.argmax(ts_cls_id,axis=1), cmap='gist_rainbow')
+    plt.scatter(xs,ys, c = np.argmax(tr_cls_id,axis=1), cmap='gist_rainbow')
 
     for i in range(20):
-        idx = np.argmax(np.argmax(ts_cls_id, axis=1)==i)
-        plt.text(xs[idx],ys[idx], determiners[i],color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
+        #idx = np.argmax(np.argmax(tr_cls_id, axis=1)==i)
+        #plt.text(xs[idx], ys[idx], determiners[i], color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
+        centroid = np.mean(alltrans[p][np.argmax(tr_cls_id, axis=1)==i],axis=0)
+        plt.text(centroid[0], centroid[1], determiners[i], color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
+
     plt.xlabel('{}1'.format(labels[p]))
     plt.ylabel('{}2'.format(labels[p]))
-    plt.suptitle('Determiner representation')
-    plt.savefig('../Fig/det_rep_{}.png'.format(labels[p]))
+    plt.title('Determiner representation')
+    plt.savefig('../Fig/rand_det_rep_{}.png'.format(labels[p]))
 
 plt.show()

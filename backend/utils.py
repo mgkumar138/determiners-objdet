@@ -5,6 +5,8 @@ import os
 import tensorflow as tf
 from tensorflow import keras
 
+# https://github.com/Cartucho/mAP
+
 def create_output_txt(gdt, predt, confi, directory, gd_cls=None,pred_cls=None):
     # gd: <class_name> <left> <top> <right> <bottom> [<difficult>]
     # pred : <class_name> <confidence> <left> <top> <right> <bottom>
@@ -199,7 +201,7 @@ def generate_img_caption_bb_mask(dir='../dataset_dir', show_example=True):
 
 def train_val_test_split(images, captions, targets, objdet, sentemb, splitratio=[0.7,0.15,0.15], seed=0):
     np.random.seed(seed)
-    N = len(images)
+    N = len(targets)
     allidx = np.arange(N)
     testidx = np.random.choice(allidx, int(N*splitratio[2]), replace=False)
     validx = np.random.choice(np.delete(allidx,testidx), int(N*splitratio[1]), replace=False)
