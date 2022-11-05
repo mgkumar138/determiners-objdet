@@ -3,8 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow_datasets as tfds
 import os
-from backend.utils import saveload, convert_to_corners, build_head, LabelEncoder, RetinaNetLoss, preprocess_data
-
 
 # dataset
 # images, _, target_bb, _, _, sentemb_vec = saveload('load','../dataset_dir/img_cap_bb_mask_matrix_5000',1)
@@ -14,8 +12,6 @@ from backend.utils import saveload, convert_to_corners, build_head, LabelEncoder
 # sentemb_vec = tf.cast(sentemb_vec, dtype=tf.float32)
 # #target_bb = tf.concat([target_bb[:,:,:4],target_bb[:,:,5:]],axis=-1)
 # target_bb = tf.cast(target_bb, dtype=tf.float32)
-
-(train_dataset, val_dataset), dataset_info = tfds.load("coco/2017", split=["train", "validation"], with_info=True, data_dir="data")
 
 batch_size = 1
 label_encoder = LabelEncoder()
