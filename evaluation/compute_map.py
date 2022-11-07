@@ -47,7 +47,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # 'rand/test_bb_only', 'rand/val_bb_only', 'rand/train_bb_only',
 # 'ns/test_bb_only',
 # 'ns/train_bb_cap', 'ns/test_bb_cap', 'ns/val_bb_cap',
-directory = 'ns_cls_gtany/test_bb_cap'
+directory = 'ns_cls_modgt/mod_gt'
 print(directory)
 
 GT_PATH = os.path.join(os.getcwd(), directory,'ground-truth')

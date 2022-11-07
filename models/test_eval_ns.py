@@ -30,10 +30,10 @@ for det in multidet:
 objdet_norm_bb = np.concatenate([objdet_bb[:,:,:4]/256.0, objdet_bb[:,:,4:]],axis=2)
 target_norm_bb = np.concatenate([target_bb[:,:,:4]/256.0, target_bb[:,:,4:]],axis=2)
 
-traindata, valdata, testdata = train_val_test_split(gt_bb, captions, target_norm_bb, objdet_norm_bb, sentemb_vec)
+traindata, valdata, testdata = train_val_test_split(images, captions, target_norm_bb, objdet_norm_bb, sentemb_vec)
 [tr_gt, _, tr_out, tr_bb, tr_emb] = traindata
 [val_gt, _, val_out, val_bb, val_emb] = valdata
-[ts_gt, _, ts_out, ts_bb, ts_emb] = testdata
+[ts_gt, ts_cap, ts_out, ts_bb, ts_emb] = testdata
 
 # reshape bb and target
 tr_bb_rs, val_bb_rs,ts_bb_rs = np.reshape(tr_bb, (len(tr_bb),-1)), np.reshape(val_bb, (len(val_bb),-1)), np.reshape(ts_bb, (len(ts_bb),-1))
@@ -107,7 +107,7 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 #loss_fn = [tf.keras.losses.BinaryCrossentropy(), tf.keras.losses.CategoricalCrossentropy()] #tf.keras.losses.MeanSquaredError()
 loss_fn = custom_loss #tf.keras.losses.MeanSquaredError()
 
-epochs = 10
+epochs = 20
 model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=True)
 if trainwithcaptions:
     history = model.fit(x=[tr_bb_rs,tr_emb],y=tf.concat([tr_out_rs, tr_cls_id],axis=1),
@@ -142,7 +142,7 @@ val_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=val_out_
 ts_out[:,:,:4] *= 256.0
 pred_ts_out = model.predict([ts_bb_rs,ts_emb])
 [pred_ts_score, pred_ts_cls] = pred_ts_out[:,:20], pred_ts_out[:,20:]
-ts_emb = (ts_bb[:,:,:4] * (pred_ts_score> 0.5)[:,:,None]) * 256.0
+pred_ts_bbcap = (ts_bb[:,:,:4] * (pred_ts_score> 0.5)[:,:,None]) * 256.0
 test_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=ts_out_rs, y_pred=pred_ts_score, from_logits=False))
 #create_output_txt(gdt=ts_gt, predt=pred_ts_bbcap, confi=pred_ts_score,gd_cls=ts_cls_id,pred_cls=pred_ts_cls, directory='ns_cls_gtany/test_bb_cap')
 
@@ -154,6 +154,8 @@ test_bcloss_nocap = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=t
 #create_output_txt(gdt=ts_out, predt=pred_ts_bb, confi=pred_ts_score_nocap,gd_cls=ts_cls_id,pred_cls=pred_ts_cls_nocap, directory='ns_cls_gtany/test_bb_only')
 
 #print(testmap, testmapnocap)
+
+saveload('save','test_predbb_out', [pred_ts_bbcap,pred_ts_cls,pred_ts_score, ts_bb, ts_emb,ts_out])
 
 
 # plot prediction
