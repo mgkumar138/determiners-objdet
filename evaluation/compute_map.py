@@ -47,11 +47,11 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # 'rand/test_bb_only', 'rand/val_bb_only', 'rand/train_bb_only',
 # 'ns/test_bb_only',
 # 'ns/train_bb_cap', 'ns/test_bb_cap', 'ns/val_bb_cap',
-directory = '../data_model/ns_cls/test_bb_cap'
+directory = '../data_model/ns_cls_modgt/mod_gt'
 print(directory)
 
 GT_PATH = os.path.join(os.getcwd(), directory,'ground-truth')
-DR_PATH = os.path.join(os.getcwd(), directory, 'detection-results')
+DR_PATH = os.path.join(os.getcwd(), directory, 'detection-ns_results')
 # if there are no images then no animation can be shown
 IMG_PATH = os.path.join(os.getcwd(), 'input', 'images-optional')
 if os.path.exists(IMG_PATH):
@@ -69,7 +69,7 @@ if not args.no_animation:
         import cv2
         show_animation = True
     except ImportError:
-        print("\"opencv-python\" not found, please install to visualize the results.")
+        print("\"opencv-python\" not found, please install to visualize the ns_results.")
         args.no_animation = True
 
 # try to import Matplotlib if the user didn't choose the option --no-plot
@@ -372,7 +372,7 @@ for txt_file in ground_truth_files_list:
     #print(txt_file)
     file_id = txt_file.split(".txt", 1)[0]
     file_id = os.path.basename(os.path.normpath(file_id))
-    # check if there is a correspondent detection-results file
+    # check if there is a correspondent detection-ns_results file
     temp_path = os.path.join(DR_PATH, (file_id + ".txt"))
     if not os.path.exists(temp_path):
         error_msg = "Error. File not found: {}\n".format(temp_path)
@@ -460,10 +460,10 @@ if specific_iou_flagged:
             error('Error, IoU must be between 0.0 and 1.0. Flag usage:' + error_msg)
 
 """
- detection-results
-     Load each of the detection-results files into a temporary ".json" file.
+ detection-ns_results
+     Load each of the detection-ns_results files into a temporary ".json" file.
 """
-# get a list with the detection-results files
+# get a list with the detection-ns_results files
 dr_files_list = glob.glob(DR_PATH + '/*.txt')
 dr_files_list.sort()
 
@@ -494,7 +494,7 @@ for class_index, class_name in enumerate(gt_classes):
                 bbox = left + " " + top + " " + right + " " +bottom
                 bounding_boxes.append({"confidence":confidence, "file_id":file_id, "bbox":bbox})
                 #print(bounding_boxes)
-    # sort detection-results by decreasing confidence
+    # sort detection-ns_results by decreasing confidence
     bounding_boxes.sort(key=lambda x:float(x['confidence']), reverse=True)
     with open(TEMP_FILES_PATH + "/" + class_name + "_dr.json", 'w') as outfile:
         json.dump(bounding_boxes, outfile)
@@ -512,13 +512,13 @@ with open(output_files_path + "/output.txt", 'w') as output_file:
     for class_index, class_name in enumerate(gt_classes):
         count_true_positives[class_name] = 0
         """
-         Load detection-results of that class
+         Load detection-ns_results of that class
         """
         dr_file = TEMP_FILES_PATH + "/" + class_name + "_dr.json"
         dr_data = json.load(open(dr_file))
 
         """
-         Assign detection-results to ground-truth objects
+         Assign detection-ns_results to ground-truth objects
         """
         nd = len(dr_data)
         tp = [0] * nd # creates an array of zeros of size nd
@@ -547,7 +547,7 @@ with open(output_files_path + "/output.txt", 'w') as output_file:
                     bottom_border = 60
                     BLACK = [0, 0, 0]
                     img = cv2.copyMakeBorder(img, 0, bottom_border, 0, 0, cv2.BORDER_CONSTANT, value=BLACK)
-            # assign detection-results to ground truth object if any
+            # assign detection-ns_results to ground truth object if any
             # open ground-truth with that file_id
             gt_file = TEMP_FILES_PATH + "/" + file_id + "_ground_truth.json"
             ground_truth_data = json.load(open(gt_file))
@@ -762,7 +762,7 @@ if show_animation:
 shutil.rmtree(TEMP_FILES_PATH)
 
 """
- Count total of detection-results
+ Count total of detection-ns_results
 """
 # iterate through all the files
 det_counter_per_class = {}
@@ -808,7 +808,7 @@ if draw_plot:
         )
 
 """
- Write number of ground-truth objects per class to results.txt
+ Write number of ground-truth objects per class to ns_results.txt
 """
 with open(output_files_path + "/output.txt", 'a') as output_file:
     output_file.write("\n# Number of ground-truth objects per class\n")
@@ -825,18 +825,18 @@ for class_name in dr_classes:
 #print(count_true_positives)
 
 """
- Plot the total number of occurences of each class in the "detection-results" folder
+ Plot the total number of occurences of each class in the "detection-ns_results" folder
 """
 if draw_plot:
-    window_title = "detection-results-info"
+    window_title = "detection-ns_results-info"
     # Plot title
-    plot_title = "detection-results\n"
+    plot_title = "detection-ns_results\n"
     plot_title += "(" + str(len(dr_files_list)) + " files and "
     count_non_zero_values_in_dictionary = sum(int(x) > 0 for x in list(det_counter_per_class.values()))
     plot_title += str(count_non_zero_values_in_dictionary) + " detected classes)"
     # end Plot title
     x_label = "Number of objects per class"
-    output_path = output_files_path + "/detection-results-info.png"
+    output_path = output_files_path + "/detection-ns_results-info.png"
     to_show = False
     plot_color = 'forestgreen'
     true_p_bar = count_true_positives

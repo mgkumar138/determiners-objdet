@@ -56,19 +56,6 @@ ts_cls_id = ts_emb[:,:20]
 
 # custom model
 def custom_loss(y_true, y_pred):
-    # classid
-    # truecls = tf.argmax(y_true[:,20:],axis=1)
-    # anyidx = (truecls == 3)  # any class
-    # idx = (truecls != 3)
-    #
-    # bc_loss = tf.keras.metrics.binary_crossentropy(y_true[:,:20][idx], y_pred[:,:20][idx], from_logits=False)
-    # cat_loss = tf.keras.metrics.binary_crossentropy(y_true[:,20:][idx], y_pred[:,20:][idx], from_logits=False)
-
-    dets = np.argmax(y_true[:,:20])
-    anyidx = dets == 3
-    mask = y_pred[:,20:]
-
-
     bc_loss = tf.keras.metrics.binary_crossentropy(y_true[:,:20], y_pred[:,:20], from_logits=False)
     cat_loss = tf.keras.metrics.categorical_crossentropy(y_true[:,20:], y_pred[:,20:], from_logits=False)
     loss = tf.reduce_mean(bc_loss + cat_loss)
@@ -107,7 +94,7 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 #loss_fn = [tf.keras.losses.BinaryCrossentropy(), tf.keras.losses.CategoricalCrossentropy()] #tf.keras.losses.MeanSquaredError()
 loss_fn = custom_loss #tf.keras.losses.MeanSquaredError()
 
-epochs = 20
+epochs = 2
 model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=True)
 if trainwithcaptions:
     history = model.fit(x=[tr_bb_rs,tr_emb],y=tf.concat([tr_out_rs, tr_cls_id],axis=1),

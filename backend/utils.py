@@ -28,7 +28,7 @@ def create_output_txt(gdt, predt, confi, directory, gd_cls=None,pred_cls=None):
     if not os.path.exists(directory):
         os.makedirs(directory)
         os.makedirs(directory+'/ground-truth')
-        os.makedirs(directory + '/detection-results')
+        os.makedirs(directory + '/detection-ns_results')
 
     N = gdt.shape[0]
     for n in range(N):
@@ -45,7 +45,7 @@ def create_output_txt(gdt, predt, confi, directory, gd_cls=None,pred_cls=None):
 
         posposidx = np.any(predt[n,:,:4]>0,axis=1)*(confi[n]>0.5)
         posidx = np.arange(predt.shape[1])[posposidx]
-        with open('./{}/detection-results/imcap_{}.txt'.format(directory,n), 'w') as fh:
+        with open('./{}/detection-ns_results/imcap_{}.txt'.format(directory,n), 'w') as fh:
             for i in posidx:
                 if pred_cls is not None:
                     cl = determiners[pred_cls_id[n]]

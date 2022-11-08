@@ -18,7 +18,7 @@ annFile = '%s/annotations/%s_%s.json'%(dataDir,prefix,dataType)
 cocoGt=COCO(annFile)
 
 #initialize COCO detections api
-resFile='%s/results/%s_%s_fake%s100_results.json'
+resFile='%s/ns_results/%s_%s_fake%s100_results.json'
 resFile = resFile%(dataDir, prefix, dataType, annType)
 cocoDt=cocoGt.loadRes(resFile)
 
