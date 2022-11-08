@@ -7,12 +7,21 @@ from tensorflow import keras
 
 # https://github.com/Cartucho/mAP
 
+def custom_loss(y_true, y_pred):
+    bc_loss = tf.keras.metrics.binary_crossentropy(y_true[:,:20], y_pred[:,:20], from_logits=False)
+    cat_loss = tf.keras.metrics.categorical_crossentropy(y_true[:,20:], y_pred[:,20:], from_logits=False)
+    loss = tf.reduce_mean(bc_loss + cat_loss)
+    return loss
+
 def create_output_txt(gdt, predt, confi, directory, gd_cls=None,pred_cls=None):
     # gd: <class_name> <left> <top> <right> <bottom> [<difficult>]
     # pred : <class_name> <confidence> <left> <top> <right> <bottom>
     if gd_cls is not None:
+        # determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
+        #                "few", "both", "neither", "little", "much", "either", "our"]
         determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
-                       "few", "both", "neither", "little", "much", "either", "our"]
+                       "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
+                       "the"]
         gd_cls_id = np.argmax(gd_cls,axis=1)
         pred_cls_id = np.argmax(pred_cls,axis=1)
 
