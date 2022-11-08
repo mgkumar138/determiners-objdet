@@ -312,7 +312,7 @@ if __name__ == '__main__':
 
     modgt_bb = main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb)
 
-    create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:25],pred_cls=pred_cls, directory='../data_model/ns_cls_modgt/mod_gt')
+    #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:25],pred_cls=pred_cls, directory='../data_model/ns_cls_modgt/mod_gt')
 
 # your
 # anyidx = 6
