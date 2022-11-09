@@ -12,20 +12,57 @@ from backend.utils import compute_all_ious, create_output_txt, center_coord
 # 3) select apple with highest IoU as ground truth and discard the rest. dont modify prediction
 
 def main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb):
+    #gt_bb = my_your_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[5,6])
     gt_bb = a_an_either_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[0, 1, 18,24])
     gt_bb = any_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=3)
     gt_bb = this_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=7)
     gt_bb = that_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=8)
     gt_bb = these_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9)
     gt_bb = those_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=10)
-    gt_bb = some_many_few_several_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[11,12,13, 21],  lowerbound=[5,8,2,4], upperbound=[6,9,3,7])
+    gt_bb = some_many_few_several_half_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[11,12,13, 21,22],  lowerbound=[5,8,2,4,-1], upperbound=[6,9,3,7,-1])
     return gt_bb
 
+'''
+def my_your_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[5,6]):
+    # a, an, either
+    for aidx in detidx:
+        alla = np.argmax(input_cap[:,:25],axis=1) == aidx
+        nidx = np.arange(len(pred_bb))[alla]
+        for n in nidx:
+            objroi = np.argmax(input_cap[n,25:])
+            objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
 
+            # all correct answers
+            allobjbb = input_bb[n,:,:4][objidx] #* 256
 
+            # tray coord
+            trayidx = np.argmax(input_bb[n,:,5:],axis=1) == 15
+            traycoord = input_bb[n,:,:4][trayidx]
+            traydist = np.linalg.norm(center_coord(traycoord),axis=1)
+            mytray = traycoord[np.argmax(traydist)]
+            yourtray = traycoord[np.argmin(traydist)]
 
-def some_many_few_several_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb,detidx=[11,12,13,21], lowerbound=[5,8,2,4], upperbound=[6,9,3,7]):
-    for det, lb, up in zip(detidx, lowerbound, upperbound):
+            # Logic: use top 1 prediction for a
+            top1idx = np.argsort(pred_score[n])[::-1][:1]
+            predbb = pred_bb[n, top1idx]
+
+            # check if predicted bb IoU with all 'apple' bb
+            allious = compute_all_ious(allobjbb, predbb)
+            if len(allious)<1:
+                print(objidx)
+            gtbbsel = np.argmax(allious,axis=0)
+            gtbbsel = np.unique(gtbbsel)
+            gtbb = allobjbb[gtbbsel]
+            #assert len(gtbb) == 1
+            if len(gtbb) !=1:
+                print(gtbb)
+            pad_gtbb = np.pad(gtbb, ((0, 20 - len(gtbb)), (0, 0)))[None,:]
+            gt_bb[n] = pad_gtbb
+    return gt_bb
+'''
+
+def some_many_few_several_half_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb,detidx=[11,12,13,21], lowerbound=[5,8,2,4], upperbound=[6,9,3,7]):
+    for det, lowerb, upperb in zip(detidx, lowerbound, upperbound):
         # some 5-6, many 8-9, few 2-3, several 4-7
         alldet = np.argmax(input_cap[:,:25],axis=1) == det # captions with some
         allcountobj = np.argmax(input_cap[alldet, 25:], axis=1) < 10  # captions with countables
@@ -34,10 +71,16 @@ def some_many_few_several_changegt(gt_bb, input_bb, input_cap, pred_score, pred_
         nidx = nidx[allcountobj]
         for n in nidx:
             objroi = np.argmax(input_cap[n,25:])
-            objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
+            presentobj = input_bb[n,:,4]>0
+            objidx = np.argmax(input_bb[n,presentobj,5:],axis=1) == objroi
 
-            # all targets
-            allobjbb = input_bb[n,:,:4][objidx] #* 256
+            # all correct answers
+            allobjbb = input_bb[n,presentobj,:4][objidx] #* 256
+
+            if lowerb == -1 and upperb == -1:
+                lb = up = len(allobjbb)//2
+            else:
+                lb, up = lowerb, upperb
 
             # logic: use predictions with score above 0.5 for any
             critanyidx = np.arange(20)[pred_score[n]>0.5]
@@ -50,6 +93,8 @@ def some_many_few_several_changegt(gt_bb, input_bb, input_cap, pred_score, pred_
             gtbbsel = np.argmax(allious,axis=0)
             gtbbsel = np.unique(gtbbsel)
             gtbb = allobjbb[gtbbsel]
+
+
             if not lb<=len(gtbb)<=up:
                 if len(gtbb) < lb:
                     remainsoln = np.delete(np.arange(len(allobjbb)), gtbbsel)
@@ -72,10 +117,11 @@ def a_an_either_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx
         nidx = np.arange(len(pred_bb))[alla]
         for n in nidx:
             objroi = np.argmax(input_cap[n,25:])
-            objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
+            presentobj = input_bb[n,:,4]>0
+            objidx = np.argmax(input_bb[n,presentobj,5:],axis=1) == objroi
 
             # all correct answers
-            allobjbb = input_bb[n,:,:4][objidx] #* 256
+            allobjbb = input_bb[n,presentobj,:4][objidx] #* 256
 
             # Logic: use top 1 prediction for a
             top1idx = np.argsort(pred_score[n])[::-1][:1]
@@ -103,11 +149,12 @@ def both_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=14):
     alldet = np.argmax(input_cap[:,:25],axis=1) == detidx
     nidx = np.arange(len(pred_bb))[alldet]
     for n in nidx:
-        objroi = np.argmax(input_cap[n,25:])
-        objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
+        objroi = np.argmax(input_cap[n, 25:])
+        presentobj = input_bb[n, :, 4] > 0
+        objidx = np.argmax(input_bb[n, presentobj, 5:], axis=1) == objroi
 
-        # all coorect answers
-        allobjbb = input_bb[n,:,:4][objidx] #* 256
+        # all correct answers
+        allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # Logic: use top 2 prediction for a
         top2idx = np.argsort(pred_score[n])[::-1][:2]
@@ -130,11 +177,12 @@ def any_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=3):
     allany = np.argmax(input_cap[:,:25],axis=1) == detidx
     nidx = np.arange(len(pred_bb))[allany]
     for n in nidx:
-        objroi = np.argmax(input_cap[n,25:])
-        objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
+        objroi = np.argmax(input_cap[n, 25:])
+        presentobj = input_bb[n, :, 4] > 0
+        objidx = np.argmax(input_bb[n, presentobj, 5:], axis=1) == objroi
 
-        # all coorect answers
-        allobjbb = input_bb[n,:,:4][objidx] #* 256
+        # all correct answers
+        allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: use predictions with score above 0.5 for any
         critanyidx = np.arange(20)[pred_score[n]>0.5]
@@ -158,9 +206,12 @@ def this_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=7):
     allthis = np.argmax(input_cap[:,:25],axis=1) == detidx
     nidx = np.arange(len(pred_bb))[allthis]
     for n in nidx:
-        objroi = np.argmax(input_cap[n,25:])
-        objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
-        allobjbb = input_bb[n,:,:4][objidx] #* 256
+        objroi = np.argmax(input_cap[n, 25:])
+        presentobj = input_bb[n, :, 4] > 0
+        objidx = np.argmax(input_bb[n, presentobj, 5:], axis=1) == objroi
+
+        # all correct answers
+        allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: object closer to camera with highest prediction score
         center = np.array([128.0,256.0])
@@ -193,9 +244,12 @@ def that_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
     alldet = np.argmax(input_cap[:,:25],axis=1) == detidx
     nidx = np.arange(len(pred_bb))[alldet]
     for n in nidx:
-        objroi = np.argmax(input_cap[n,25:])
-        objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
-        allobjbb = input_bb[n,:,:4][objidx] #* 256
+        objroi = np.argmax(input_cap[n, 25:])
+        presentobj = input_bb[n, :, 4] > 0
+        objidx = np.argmax(input_bb[n, presentobj, 5:], axis=1) == objroi
+
+        # all correct answers
+        allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: object closer to camera with highest prediction score
         center = np.array([128.0,256.0])
@@ -229,9 +283,12 @@ def these_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
     allthese = np.argmax(input_cap[:,:25],axis=1) == detidx
     nidx = np.arange(len(pred_bb))[allthese]
     for n in nidx:
-        objroi = np.argmax(input_cap[n,25:])
-        objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
-        allobjbb = input_bb[n,:,:4][objidx] #* 256
+        objroi = np.argmax(input_cap[n, 25:])
+        presentobj = input_bb[n, :, 4] > 0
+        objidx = np.argmax(input_bb[n, presentobj, 5:], axis=1) == objroi
+
+        # all correct answers
+        allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: object closer to camera with highest prediction score
         center = np.array([128.0,256.0])
@@ -278,9 +335,12 @@ def those_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=10):
     allthose = np.argmax(input_cap[:,:25],axis=1) == detidx
     nidx = np.arange(len(pred_bb))[allthose]
     for n in nidx:
-        objroi = np.argmax(input_cap[n,25:])
-        objidx = np.argmax(input_bb[n,:,5:],axis=1) == objroi
-        allobjbb = input_bb[n,:,:4][objidx] #* 256
+        objroi = np.argmax(input_cap[n, 25:])
+        presentobj = input_bb[n, :, 4] > 0
+        objidx = np.argmax(input_bb[n, presentobj, 5:], axis=1) == objroi
+
+        # all correct answers
+        allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: object closer to camera with highest prediction score
         center = np.array([128.0,256.0])
@@ -320,15 +380,17 @@ if __name__ == '__main__':
     determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
                    "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
                    "the"]
-
-    [pred_bb,pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_out_v3',1)
-    create_output_txt(gdt=output_bb[:,:,:4], predt=pred_bb, confi=pred_score, directory='../data_model/ns_cls_gt/ori_gt')
+    [pred_bb, pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_out_v3', 1)
+    #[pred_bb,pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_det_v3',1)
+    create_output_txt(gdt=output_bb[:,:,:4], predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt/ori_gt')
+    #create_output_txt(gdt=output_bb[:, :, :4], predt=pred_bb, confi=pred_score ,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/ori_gt')
 
     gt_bb = np.copy(output_bb[:,:,:4])  # modified ground truth bounding box labels
 
     modgt_bb = main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb)
 
-    create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score, directory='../data_model/ns_cls_gt/mod_gt')
+    create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt/mod_gt')
+    #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/mod_gt')
 
 # your
 # anyidx = 6

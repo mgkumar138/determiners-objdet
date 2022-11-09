@@ -64,8 +64,8 @@ def create_output_txt(gdt, predt, confi, directory, gd_cls=None,pred_cls=None):
             for i in posidx:
                 if pred_cls is not None:
                     cl = determiners[pred_cls_id[n]]
-                    if cl == "neither":
-                        print('neither')
+                    # if cl == "neither":
+                    #     print('neither')
                 else:
                     cl = 'none'
                 bb = xywh_to_coord(predt[n,i,:4])
