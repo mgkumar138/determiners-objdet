@@ -22,6 +22,21 @@ def create_output_txt(gdt, predt, confi, directory, gd_cls=None,pred_cls=None):
         determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
                        "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
                        "the"]
+        objects = ['apple',
+                     'onion',
+                     'avocado',
+                     'orange',
+                     'egg',
+                     'carrot',
+                     'cucumber',
+                     'lemon',
+                     'garlic',
+                     'banana',
+                     'grape juice',
+                     'cranberry juice',
+                     'blueberry juice',
+                     'papaya juice',
+                     'vegetable juice']
         gd_cls_id = np.argmax(gd_cls,axis=1)
         pred_cls_id = np.argmax(pred_cls,axis=1)
 
@@ -264,6 +279,9 @@ def bb_intersection_over_union(boxA, boxB):
     # area and dividing it by the sum of prediction + ground-truth
     # areas - the interesection area
     iou = interArea / float(boxAArea + boxBArea - interArea)
+
+    if np.isnan(iou):
+        print(iou)
     # return the intersection over union value
     return iou
 

@@ -18,15 +18,15 @@ def main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb
     gt_bb = that_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=8)
     gt_bb = these_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9)
     gt_bb = those_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=10)
-    gt_bb = some_many_few_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[11,12,13],  lowerbound=[5,8,2])
+    gt_bb = some_many_few_several_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[11,12,13, 21],  lowerbound=[5,8,2,4], upperbound=[6,9,3,7])
     return gt_bb
 
 
 
 
-def some_many_few_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb,detidx=[11,12,13], lowerbound=[5,8,2]):
-    for det, lb in zip(detidx, lowerbound):
-        # some 5-6, many 8-9, few 2-3
+def some_many_few_several_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb,detidx=[11,12,13,21], lowerbound=[5,8,2,4], upperbound=[6,9,3,7]):
+    for det, lb, up in zip(detidx, lowerbound, upperbound):
+        # some 5-6, many 8-9, few 2-3, several 4-7
         alldet = np.argmax(input_cap[:,:25],axis=1) == det # captions with some
         allcountobj = np.argmax(input_cap[alldet, 25:], axis=1) < 10  # captions with countables
         # index of captions with some and countables
@@ -48,13 +48,18 @@ def some_many_few_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb,detid
             if len(allious)<1:
                 print(objidx)
             gtbbsel = np.argmax(allious,axis=0)
+            gtbbsel = np.unique(gtbbsel)
             gtbb = allobjbb[gtbbsel]
-            if not (lb-1)<len(gtbb)<(lb+2):
-                remainsoln = np.delete(np.arange(len(allobjbb)), gtbbsel)
-                idx = np.random.choice(remainsoln, lb-len(predbb), replace=False)
-                gtbb = np.concatenate([gtbb, allobjbb[idx]],axis=0) # atleast 5 bounding boxes
+            if not lb<=len(gtbb)<=up:
+                if len(gtbb) < lb:
+                    remainsoln = np.delete(np.arange(len(allobjbb)), gtbbsel)
+                    idx = np.random.choice(remainsoln, lb-len(predbb), replace=False)
+                    gtbb = np.concatenate([gtbb, allobjbb[idx]],axis=0) # atleast 5 bounding boxes
+                else:
+                    descpred = np.argsort(pred_score[n])[::-1][:up]
+                    gtbb = gtbb[descpred]
 
-            assert (lb-1)<len(gtbb)<(lb+2), print('some, many, few wrong gt')
+            assert (lb-1)<len(gtbb)<(up+1), print('some, many, few, several wrong gt')
             pad_gtbb = np.pad(gtbb, ((0, 20 - len(gtbb)), (0, 0)))[None,:]
             gt_bb[n] = pad_gtbb
     return gt_bb
@@ -81,6 +86,7 @@ def a_an_either_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx
             if len(allious)<1:
                 print(objidx)
             gtbbsel = np.argmax(allious,axis=0)
+            gtbbsel = np.unique(gtbbsel)
             gtbb = allobjbb[gtbbsel]
             #assert len(gtbb) == 1
             if len(gtbb) !=1:
@@ -112,6 +118,7 @@ def both_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=14):
         if len(allious) < 1:
             print(objidx)
         gtbbsel = np.argmax(allious,axis=0)
+        gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
         assert len(gtbb) == 2
         pad_gtbb = np.pad(gtbb, ((0, 20 - len(gtbb)), (0, 0)))[None,:]
@@ -138,6 +145,7 @@ def any_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=3):
         if len(allious) < 1:
             print(objidx)
         gtbbsel = np.argmax(allious,axis=0)
+        gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
         assert 0 < len(gtbb) <= len(allobjbb)
         pad_gtbb = np.pad(gtbb, ((0, 20 - len(gtbb)), (0, 0)))[None,:]
@@ -172,6 +180,7 @@ def this_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=7):
             print(predbb)
             print(correct_this_bbs)
         gtbbsel = np.argmax(allious,axis=0)
+        gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
         assert len(gtbb) == 1
         pad_gtbb = np.pad(gtbb, ((0, 20 - len(gtbb)), (0, 0)))[None,:]
@@ -207,6 +216,7 @@ def that_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
             print(predbb)
             print(correct_that_bbs)
         gtbbsel = np.argmax(allious,axis=0)
+        gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
         assert len(gtbb) == 1
         pad_gtbb = np.pad(gtbb, ((0, 20 - len(gtbb)), (0, 0)))[None,:]
@@ -225,7 +235,7 @@ def these_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
 
         # logic: object closer to camera with highest prediction score
         center = np.array([128.0,256.0])
-        this_thres = 154  # object must be bottom half of RGB image
+        this_thres = 170  # object must be bottom half of RGB image
 
         objdist = np.linalg.norm(center - center_coord(allobjbb), axis=1)
 
@@ -241,6 +251,7 @@ def these_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
             print(predbb)
             print(correct_that_bbs)
         gtbbsel = np.argmax(allious,axis=0)
+        gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
 
         # if len(correct_that_bbs) != len(predbb):
@@ -250,6 +261,8 @@ def these_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
 
         if len(gtbb)<2:
             remainsoln = np.delete(np.arange(len(correct_that_bbs)), gtbbsel)
+            if len(remainsoln)<1:
+                print(gtbbsel)
             idx = np.random.choice(remainsoln,1,replace=False)
             gtbb = np.concatenate([gtbb, correct_that_bbs[idx]],axis=0)
             print('adding soln to these')
@@ -287,6 +300,7 @@ def those_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=10):
             print(predbb)
             print(correct_that_bbs)
         gtbbsel = np.argmax(allious,axis=0)
+        gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
 
         if len(gtbb)<2:
@@ -307,12 +321,14 @@ if __name__ == '__main__':
                    "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
                    "the"]
 
-    [pred_bb,pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_out_v2',1)
+    [pred_bb,pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_out_v3',1)
+    create_output_txt(gdt=output_bb[:,:,:4], predt=pred_bb, confi=pred_score, directory='../data_model/ns_cls_gt/ori_gt')
+
     gt_bb = np.copy(output_bb[:,:,:4])  # modified ground truth bounding box labels
 
     modgt_bb = main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb)
 
-    #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:25],pred_cls=pred_cls, directory='../data_model/ns_cls_modgt/mod_gt')
+    create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score, directory='../data_model/ns_cls_gt/mod_gt')
 
 # your
 # anyidx = 6
