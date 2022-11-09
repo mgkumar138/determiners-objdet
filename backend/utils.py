@@ -297,3 +297,7 @@ def center_coord(boxes):
 
 def base_coord(boxes):
     return np.concatenate([boxes[..., :2] + boxes[..., 2:]/2], axis=-1)
+
+
+
+#generate_corrected_gt_json("test_annotations.json", f"{split}_results.json")
