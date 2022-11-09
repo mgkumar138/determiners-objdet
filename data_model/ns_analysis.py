@@ -118,7 +118,7 @@ def map_to_inputs(example):
 # In[41]:
 
 
-train_filenames = tf.io.gfile.glob(f"{tfrecords_dir}/val/*.tfrec")
+train_filenames = tf.io.gfile.glob(f"{tfrecords_dir}/test/*.tfrec")
 print(train_filenames)
 
 train_dataset = tf.data.TFRecordDataset(train_filenames, num_parallel_reads=AUTOTUNE)
@@ -243,32 +243,46 @@ for p in range(2):
     scaler.fit(rfr)
     X = scaler.transform(rfr)
 
-    tsne = TSNE()
+    tsne = TSNE(perplexity=8,learning_rate='auto',init='pca')
     tsn_trans = tsne.fit_transform(X)
     alltrans.append(tsn_trans)
 
 
-titles = ['Before','After']
-plt.figure(figsize=(4, 8))
+titles = ['before','after']
+f,ax = plt.subplots(ncols=1, nrows=2,figsize=(5, 8))
 for p in range(2):
-
     xs = alltrans[p][:,0]
     ys = alltrans[p][:,1]
 
-    plt.subplot(2,1,p+1)
-    plt.scatter(xs,ys, c=np.argmax(det_cls,axis=1))
+    ax[p].scatter(xs, ys, c=np.argmax(det_cls,axis=1), cmap='hsv')
+
+    # ax.set_prop_cycle(color=[cm(1. * i / NUM_COLORS) for i in range(NUM_COLORS)])
+    # for i in range(25):
+    #     idx = np.argmax(det_cls,axis=1)==i
+    #     plt.scatter(xs[idx],ys[idx], label=determiners[i])
 
     for i in range(25):
         #idx = np.argmax(np.argmax(tr_cls_id, axis=1)==i)
         #plt.text(xs[idx], ys[idx], determiners[i], color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
         centroid = np.mean(alltrans[p][np.argmax(det_cls, axis=1)==i],axis=0)
-        plt.annotate(determiners[i], xy=centroid[:2],color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
+        ax[p].annotate(determiners[i], xy=centroid[:2],color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.3))
     #plt.legend(determiners)
 
-    plt.xlabel('tSNE_1')
-    plt.ylabel('tSNE_2')
-    plt.title('{} training'.format(titles[p]))
-plt.tight_layout()
+    ax[p].set_xlabel('tSNE_1')
+    ax[p].set_ylabel('tSNE_2')
+    ax[p].set_title('Embedding {} training'.format(titles[p]))
+    ax[p].spines.right.set_visible(False)
+    ax[p].spines.top.set_visible(False)
+    #adjust_text(texts, only_move={'points': 'y', 'texts': 'y'}, arrowprops=dict(arrowstyle="->", color='r', lw=0.5))
 
-plt.savefig('../Fig/tsne_bbonly.png'.format(dtype))
+# box = ax.get_position()
+# ax.set_position([box.x0, box.y0 + box.height * 0.1,
+#                  box.width, box.height * 0.9])
+# ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+#           fancybox=True, shadow=True, ncol=5)
+
+
+f.tight_layout()
+
+plt.savefig('../Fig/tsne_bbonly_vert.jpg'.format(dtype))
 plt.show()
