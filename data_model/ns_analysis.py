@@ -3,6 +3,8 @@
 # from pycocotools.coco import COCO
 import json
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.patches as patches
 import numpy as np
 import os
@@ -116,7 +118,7 @@ def map_to_inputs(example):
 # In[41]:
 
 
-train_filenames = tf.io.gfile.glob(f"{tfrecords_dir}/train/*.tfrec")
+train_filenames = tf.io.gfile.glob(f"{tfrecords_dir}/val/*.tfrec")
 print(train_filenames)
 
 train_dataset = tf.data.TFRecordDataset(train_filenames, num_parallel_reads=AUTOTUNE)
@@ -154,7 +156,7 @@ example = next(iter(train_dataset))
 nemb = 64
 nhid = 128
 maxbb = 20
-nclass = 25
+nclass = 0
 class SimpleBboxSelector(tf.keras.Model):
     def __init__(self):
         super(SimpleBboxSelector, self).__init__()
@@ -165,7 +167,7 @@ class SimpleBboxSelector(tf.keras.Model):
         self.dense1 = tf.keras.layers.Dense(nhid,activation='relu', name='combine')
         self.dense2 = tf.keras.layers.Dense(nhid, activation='relu')
         self.bb_mask = tf.keras.layers.Dense(maxbb,activation='sigmoid',name='bb_mask')
-        self.det_class = tf.keras.layers.Dense(nclass, activation='softmax', name='det_class')
+        #self.det_class = tf.keras.layers.Dense(nclass, activation='softmax', name='det_class')
 
     def call(self,inputs):
         bb = self.img_embed(tf.cast(self.flatten(inputs[0]),dtype=tf.float32))
@@ -175,8 +177,8 @@ class SimpleBboxSelector(tf.keras.Model):
         x = self.dense2(self.dense1(bb_c))
         #x = self.dense1(bb_c)
         bbs = self.bb_mask(x)
-        det = self.det_class(x)
-        return [x, bbs, det]
+        #det = self.det_class(x)
+        return [x, bbs]
 
 # In[44]:
 model = SimpleBboxSelector()
@@ -184,11 +186,22 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 loss_fn = [tf.keras.losses.BinaryCrossentropy(), tf.keras.losses.CategoricalCrossentropy()]
 model.compile(optimizer=optimizer, loss=loss_fn, metrics=['binary_crossentropy','categorical_crossentropy'],run_eagerly=True)
 model.build([(None,420),(None,41)])
-#model.load_weights("model_bb_obj_weights.h5")
-model.load_weights("model_bb_det_weights.h5")
+
+[prerfr,_] = model.predict(train_dataset)
+
+if nclass == 25:
+    model.load_weights("model_bb_det_weights.h5")
+    dtype = 'det'
+
+elif nclass == 16:
+    model.load_weights("model_bb_obj_weights.h5")
+    dtype = 'obj'
+else:
+    model.load_weights("model_bb_only_weights.h5")
+    dtype = 'only'
 #model.summary()
 
-[rfr,bbmask,detcl] = model.predict(train_dataset)
+[postrfr,_] = model.predict(train_dataset)
 
 
 examples = tf.data.TFRecordDataset(train_filenames, num_parallel_reads=AUTOTUNE)
@@ -205,42 +218,57 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
-scaler = StandardScaler()
-scaler.fit(rfr)
-X = scaler.transform(rfr)
-
-lda = LinearDiscriminantAnalysis()
-lda.fit(X, np.argmax(det_cls,axis=1))
-lda_trans = lda.transform(X)
-coeff = lda.scalings_
-
-pca = PCA()
-pca_trans = pca.fit_transform(X)
-
-tsne = TSNE()
-tsn_trans = tsne.fit_transform(X)
 
 
-alltrans = [pca_trans, lda_trans, tsn_trans]
-labels = ['PC','LD','TSNE']
+# lda = LinearDiscriminantAnalysis()
+# lda.fit(X, np.argmax(det_cls,axis=1))
+# lda_trans = lda.transform(X)
+# coeff = lda.scalings_
+#
+# pca = PCA()
+# pca_trans = pca.fit_transform(X)
+
+
+
+
+allrfr = [prerfr, postrfr]
 determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
                "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
                "the"]
-for p in range(3):
-    plt.figure(figsize=(4, 4))
+
+alltrans = []
+for p in range(2):
+    rfr = allrfr[p]
+    scaler = StandardScaler()
+    scaler.fit(rfr)
+    X = scaler.transform(rfr)
+
+    tsne = TSNE()
+    tsn_trans = tsne.fit_transform(X)
+    alltrans.append(tsn_trans)
+
+
+titles = ['Before','After']
+plt.figure(figsize=(4, 8))
+for p in range(2):
+
     xs = alltrans[p][:,0]
     ys = alltrans[p][:,1]
-    plt.scatter(xs,ys, c = np.argmax(det_cls,axis=1), cmap='gist_rainbow')
+
+    plt.subplot(2,1,p+1)
+    plt.scatter(xs,ys, c=np.argmax(det_cls,axis=1))
 
     for i in range(25):
         #idx = np.argmax(np.argmax(tr_cls_id, axis=1)==i)
         #plt.text(xs[idx], ys[idx], determiners[i], color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
         centroid = np.mean(alltrans[p][np.argmax(det_cls, axis=1)==i],axis=0)
-        plt.text(centroid[0], centroid[1], determiners[i], color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
+        plt.annotate(determiners[i], xy=centroid[:2],color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
+    #plt.legend(determiners)
 
-    plt.xlabel('{}1'.format(labels[p]))
-    plt.ylabel('{}2'.format(labels[p]))
-    plt.title('Determiner representation')
-    plt.savefig('../Fig/model_det_rep_{}.png'.format(labels[p]))
+    plt.xlabel('tSNE_1')
+    plt.ylabel('tSNE_2')
+    plt.title('{} training'.format(titles[p]))
+plt.tight_layout()
 
+plt.savefig('../Fig/tsne_bbonly.png'.format(dtype))
 plt.show()

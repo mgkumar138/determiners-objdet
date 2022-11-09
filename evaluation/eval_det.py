@@ -110,7 +110,7 @@ def generate_corrected_gt_json(gt_dir, results_dir, max_bboxes=100):
     return gt_bboxes
 
 
-def main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb, max_bb):
+def main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb, max_bb=20):
     gt_bb = np.copy(gt_bb[:,:, :4])
     #gt_bb = my_your_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[5,6])
     gt_bb = a_an_either_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[0, 1, 18,24])
@@ -437,23 +437,24 @@ def those_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, deti
 
 if __name__ == '__main__':
 
-    gt_bb = generate_corrected_gt_json(gt_dir='../data_model/annotations/test_annotations.json', results_dir='../data_model/ns_results/test_results.json')
+    # gt_bb = generate_corrected_gt_json(gt_dir='../data_model/annotations/test_annotations.json', results_dir='../data_model/ns_results/test_results.json')
 
 
-    # determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
-    #                "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
-    #                "the"]
-    # #[pred_bb, pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_out_v3', 1)
-    # [pred_bb,pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_det_v3',1)
-    # #create_output_txt(gdt=output_bb[:,:,:4], predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt/ori_gt')
-    # create_output_txt(gdt=output_bb[:, :, :4], predt=pred_bb, confi=pred_score ,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/ori_gt')
-    #
-    # gt_bb = np.copy(output_bb[:,:,:4])  # modified ground truth bounding box labels
-    #
-    # modgt_bb = main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb)
-    #
-    # #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt/mod_gt')
-    # create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/mod_gt')
+    determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
+                   "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
+                   "the"]
+    [pred_bb, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_only_v3', 1)
+    #[pred_bb, pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_out_v3', 1)
+    #[pred_bb,pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_det_v3',1)
+    create_output_txt(gdt=output_bb[:,:,:4], predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt_bb/ori_gt')
+    #create_output_txt(gdt=output_bb[:, :, :4], predt=pred_bb, confi=pred_score ,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/ori_gt')
+
+    gt_bb = np.copy(output_bb[:,:,:4])  # modified ground truth bounding box labels
+
+    modgt_bb = main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb)
+
+    create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt_bb/mod_gt')
+    #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/mod_gt')
 
 
 
