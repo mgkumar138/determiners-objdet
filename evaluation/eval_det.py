@@ -244,7 +244,7 @@ def generate_corrected_gt_json(gt_dir, results_dir, max_bboxes=20):
 
     for ann in gt_annotations:
         gt_bboxes[image_idx[ann["image_id"]]].append(np.array(ann["bbox"]))
-        print(image_idx[ann["image_id"]])
+        #print(image_idx[ann["image_id"]])
     for ann in input_annotations:
         category_one_hot = [0 for i in range(len(categories))]
         category_one_hot[ann["category_id"]] = 1
@@ -382,6 +382,8 @@ def some_many_few_several_half_changegt(max_bb, gt_bb, input_bb, input_cap, pred
             assert (lb-1)<len(gtbb)<(up+1), print('some, many, few, several wrong gt')
             pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
             gt_bb[n] = pad_gtbb
+            # if np.array_equal(pred_bb, gt_bb) is False:
+            #     np.sum(pred_bb != gt_bb)
     return gt_bb
 
 
@@ -414,6 +416,8 @@ def a_an_either_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb
                 print(gtbb)
             pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
             gt_bb[n] = pad_gtbb
+            # if np.array_equal(pred_bb, gt_bb) is False:
+            #     np.sum(pred_bb != gt_bb)
     return gt_bb
 
 #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:20],pred_cls=pred_cls, directory='ns_cls_gta/mod_gt')
@@ -445,6 +449,8 @@ def both_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
         assert len(gtbb) == 2
         pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
         gt_bb[n] = pad_gtbb
+        # if np.array_equal(pred_bb, gt_bb) is False:
+        #     np.sum(pred_bb != gt_bb)
     return gt_bb
 
 def any_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=3):
@@ -467,12 +473,17 @@ def any_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx
         allious = compute_all_ious(allobjbb, predbb)
         if len(allious) < 1:
             print(objidx)
+
         gtbbsel = np.argmax(allious,axis=0)
         gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
-        assert 0 < len(gtbb) <= len(allobjbb)
+        if len(gtbb)<1:
+            gtbb = gt_bb[n]
+        assert 0 < np.sum(np.any(gtbb,axis=1)) <= len(allobjbb), print(gtbb)
         pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
         gt_bb[n] = pad_gtbb
+        # if np.array_equal(pred_bb, gt_bb) is False:
+        #     np.sum(pred_bb != gt_bb)
     return gt_bb
 
 
@@ -493,7 +504,7 @@ def this_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
         this_thres = 113  # object must be bottom half of RGB image
         #objdist = np.linalg.norm(center - center_coord(allobjbb) , axis=1)
 
-        correct_this_bbs = allobjbb [allobjbb[:,1] < this_thres]
+        correct_this_bbs = allobjbb [allobjbb[:,1] > this_thres]
         if len(correct_this_bbs)<1:
             correct_this_bbs = gt_bb[n,input_bb[n, :, 4] > 0,:4]
 
@@ -513,6 +524,8 @@ def this_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
         assert len(gtbb) == 1
         pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
         gt_bb[n] = pad_gtbb
+        # if np.array_equal(pred_bb, gt_bb) is False:
+        #     np.sum(pred_bb != gt_bb)
     return gt_bb
 
 
@@ -554,9 +567,39 @@ def that_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
         assert len(gtbb) == 1
         pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
         gt_bb[n] = pad_gtbb
+        # if np.array_equal(pred_bb, gt_bb) is False:
+        #     np.sum(pred_bb != gt_bb)
     return gt_bb
 
 
+
+
+#create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:20],pred_cls=pred_cls, directory='ns_cls_modgt/mod_gt_a_an_either_any_both_this_that_these_those_2')
+
+
+if __name__ == '__main__':
+
+    # gt_bb = generate_corrected_gt_json(gt_dir='../data_model/annotations/test_annotations.json', results_dir='../data_model/ns_results/test_results.json')
+
+
+    determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
+                   "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
+                   "the"]
+    #[pred_bb, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_only_v3', 1)
+    #[pred_bb, pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_out_v3', 1)
+    #[pred_bb,pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_det_v3',1)
+
+    #create_output_txt(gdt=output_bb[:,:,:4], predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt_bb/ori_gt')
+    #create_output_txt(gdt=output_bb[:, :, :4], predt=pred_bb, confi=pred_score ,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/ori_gt')
+
+    #gt_bb = np.copy(output_bb[:,:,:4])  # modified ground truth bounding box labels
+
+    #modgt_bb = main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb)
+
+    #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt_bb/mod_gt')
+    #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/mod_gt')
+
+'''
 def these_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
     ## these
     allthese = np.argmax(input_cap[:,:25],axis=1) == detidx
@@ -657,34 +700,7 @@ def those_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, deti
         pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
         gt_bb[n] = pad_gtbb
     return gt_bb
-
-#create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:20],pred_cls=pred_cls, directory='ns_cls_modgt/mod_gt_a_an_either_any_both_this_that_these_those_2')
-
-
-if __name__ == '__main__':
-
-    # gt_bb = generate_corrected_gt_json(gt_dir='../data_model/annotations/test_annotations.json', results_dir='../data_model/ns_results/test_results.json')
-
-
-    determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
-                   "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
-                   "the"]
-    #[pred_bb, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_only_v3', 1)
-    #[pred_bb, pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_out_v3', 1)
-    #[pred_bb,pred_cls, pred_score, input_bb, input_cap, output_bb] = saveload('load','../data_model/test_predbb_det_v3',1)
-
-    #create_output_txt(gdt=output_bb[:,:,:4], predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt_bb/ori_gt')
-    #create_output_txt(gdt=output_bb[:, :, :4], predt=pred_bb, confi=pred_score ,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/ori_gt')
-
-    #gt_bb = np.copy(output_bb[:,:,:4])  # modified ground truth bounding box labels
-
-    #modgt_bb = main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb)
-
-    #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score, directory='../data_model/ns_gt_bb/mod_gt')
-    #create_output_txt(gdt=gt_bb, predt=pred_bb, confi=pred_score,gd_cls=input_cap[:,:25],pred_cls=pred_cls,directory='../data_model/ns_cls_gt/mod_gt')
-
-
-
+'''
 # your
 # anyidx = 6
 # allany = np.argmax(input_cap[:,:20],axis=1) == anyidx

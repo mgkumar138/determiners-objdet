@@ -202,13 +202,13 @@ for i, example in enumerate(examples):
     masked_inputs = tf.multiply(inputs[1], mask)
 
     #inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(inputs[1], axis=0)
-    inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(masked_inputs, axis=0)
+    #inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(masked_inputs, axis=0)
 
-    [rfr, pred_ts_score] = model(inputs)
-    pred_ts_score = pred_ts_score.numpy()
+    #[rfr, pred_ts_score] = model(inputs)
+    #pred_ts_score = pred_ts_score.numpy()
 
     #[pred_ts_score, pred_ts_cls] = pred[0].numpy(), pred[1].numpy()
-    pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_ts_score > 0.5)[:, :, None])
+    #pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_ts_score > 0.5)[:, :, None])
 
     # santiy check
     # objroi = np.argmax(example["caption_one_hot"].numpy()[25:])
