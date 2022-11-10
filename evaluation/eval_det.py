@@ -195,21 +195,36 @@ def generate_corrected_gt_json_v2(gt_dir, results_dir, max_bboxes=20):
     json.dump(new_json, open(f"./annotations/mod_test_annotations.json", "w"))
 
 
-def generate_corrected_gt_json_v1(gt_dir, results_dir, max_bboxes=100):
+def generate_corrected_gt_json(gt_dir, results_dir, max_bboxes=20):
+    results = json.load(open(os.path.join(results_dir)))
+    inputs = json.load(open(os.path.join(gt_dir)))
+    input_annotations = inputs["input_oracle_annotations"]
+    image_idx = defaultdict(int)
+
+    for i, image in enumerate(inputs["images"]):
+        image_idx[image['id']] = i
+
     determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
                    "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
                    "the"]
-    results = json.load(open(os.path.join(results_dir)))
     get_attr = operator.attrgetter('image_id')
     #     print(results)
     img_id_grouped = [list(g) for k, g in itertools.groupby(results, lambda x: x["image_id"])]
-    bboxes = list(map(lambda arr: list(map(lambda y: np.array(y["bbox"]), arr)), img_id_grouped))
-    scores = list(map(lambda arr: list(map(lambda y: y["score"], arr)), img_id_grouped))
-    labels = list(map(lambda arr: list(map(lambda y: y["category_id"], arr)), img_id_grouped))
+    res_bboxes = list(map(lambda arr: list(map(lambda y: np.array(y["bbox"]), arr)), img_id_grouped))
+    res_scores = list(map(lambda arr: list(map(lambda y: y["score"], arr)), img_id_grouped))
+    res_labels = list(map(lambda arr: list(map(lambda y: y["category_id"], arr)), img_id_grouped))
 
-    print(len(bboxes))
-    print(len(scores))
-    print(len(labels))
+    bboxes = [[] for i in range(len(inputs["images"]))]
+    scores = [[] for i in range(len(inputs["images"]))]
+    labels = [[] for i in range(len(inputs["images"]))]
+
+    for i, group in enumerate(img_id_grouped):
+        image_id = group[0]["image_id"]
+        j = image_idx[image_id]
+        bboxes[j] += res_bboxes[i]
+        scores[j] += res_scores[i]
+        labels[j] += res_labels[i]
+
     for i, group in enumerate(bboxes):
         for j in range(len(group), max_bboxes):
             bboxes[i].append(np.array([0, 0, 0, 0]))
@@ -217,23 +232,19 @@ def generate_corrected_gt_json_v1(gt_dir, results_dir, max_bboxes=100):
             labels[i].append(0)
         bboxes[i] = np.array(bboxes[i])
         scores[i] = np.array(scores[i])
-        labels[i] = np.array(scores[i])
+        labels[i] = np.array(labels[i])
     bboxes = np.array(bboxes)
     scores = np.array(scores)
     labels = np.array(scores)
 
-    inputs = json.load(open(os.path.join(gt_dir)))
-    input_annotations = inputs["input_oracle_annotations"]
     categories = inputs["categories"]
     gt_annotations = inputs["annotations"]
-    image_idx = defaultdict(int)
     gt_bboxes = [[] for i in inputs["images"]]
     input_bboxes = [[] for i in inputs["images"]]
-    for i, image in enumerate(inputs["images"]):
-        image_idx[image['id']] = i
 
     for ann in gt_annotations:
         gt_bboxes[image_idx[ann["image_id"]]].append(np.array(ann["bbox"]))
+        print(image_idx[ann["image_id"]])
     for ann in input_annotations:
         category_one_hot = [0 for i in range(len(categories))]
         category_one_hot[ann["category_id"]] = 1
@@ -280,21 +291,47 @@ def generate_corrected_gt_json_v1(gt_dir, results_dir, max_bboxes=100):
     print("captions shape", captions.shape)
 
     gt_bboxes = main_change_gt_multiple_soln(gt_bboxes, input_bboxes, captions, scores, bboxes, max_bboxes)
-    print(len(gt_bboxes))
-    print(len(gt_annotations))
+    new_bboxes = []
+    new_annotations = []
+    count = 0
+    for i, img_bboxes in enumerate(gt_bboxes):
+        #print(inputs["images"][i]["id"])
+        for bbox in img_bboxes:
+            bbox = list(bbox)
+            bbox = list(map(np.int, bbox))
+            if bbox == [0, 0, 0, 0]:
+                continue
+            else:
+                new_bboxes.append(bbox)
+                new_annotations.append({
+                    "id": count,
+                    "image_id": inputs["images"][i]["id"],
+                    "bbox": bbox,
+                    "area": bbox[2] * bbox[3],
+                    "category_id": 1,
+                    "iscrowd": 0
+                })
+            count += 1
+    new_json = {
+        "licenses": inputs["licenses"],
+        "categories": inputs["categories"],
+        "images": inputs["images"],
+        "annotations": new_annotations
+    }
 
-    return gt_bboxes
+    json.dump(new_json, open(f"./annotations/mod_test_annotations.json", "w"))
 
 
 def main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb, max_bb=20):
+    assert gt_bb.shape[0] == pred_bb.shape[0]
     #gt_bb = np.copy(gt_bb[:,:, :4])
     #gt_bb = my_your_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[5,6])
     gt_bb = a_an_either_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[0, 1, 18,24])
     gt_bb = any_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=3)
     gt_bb = this_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=7)
     gt_bb = that_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=8)
-    gt_bb = these_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9)
-    gt_bb = those_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=10)
+    #gt_bb = these_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9)
+    #gt_bb = those_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=10)
     gt_bb = some_many_few_several_half_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[11,12,13, 21,22],  lowerbound=[5,8,2,4,-1], upperbound=[6,9,3,7,-1])
     return gt_bb
 
@@ -305,7 +342,7 @@ def some_many_few_several_half_changegt(max_bb, gt_bb, input_bb, input_cap, pred
         alldet = np.argmax(input_cap[:,:25],axis=1) == det # captions with some
         allcountobj = np.argmax(input_cap[alldet, 25:], axis=1) < 10  # captions with countables
         # index of captions with some and countables
-        nidx = np.arange(len(pred_bb))[alldet]
+        nidx = np.arange(len(gt_bb))[alldet]
         nidx = nidx[allcountobj]
         for n in nidx:
             objroi = np.argmax(input_cap[n,25:])
@@ -352,7 +389,7 @@ def a_an_either_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb
     # a, an, either
     for aidx in detidx:
         alla = np.argmax(input_cap[:,:25],axis=1) == aidx
-        nidx = np.arange(len(pred_bb))[alla]
+        nidx = np.arange(len(gt_bb))[alla]
         for n in nidx:
             objroi = np.argmax(input_cap[n,25:])
             presentobj = input_bb[n,:,4]>0
@@ -385,7 +422,7 @@ def a_an_either_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb
 def both_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=14):
     # both
     alldet = np.argmax(input_cap[:,:25],axis=1) == detidx
-    nidx = np.arange(len(pred_bb))[alldet]
+    nidx = np.arange(len(gt_bb))[alldet]
     for n in nidx:
         objroi = np.argmax(input_cap[n, 25:])
         presentobj = input_bb[n, :, 4] > 0
@@ -413,7 +450,7 @@ def both_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
 def any_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=3):
     # any
     allany = np.argmax(input_cap[:,:25],axis=1) == detidx
-    nidx = np.arange(len(pred_bb))[allany]
+    nidx = np.arange(len(gt_bb))[allany]
     for n in nidx:
         objroi = np.argmax(input_cap[n, 25:])
         presentobj = input_bb[n, :, 4] > 0
@@ -442,7 +479,7 @@ def any_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx
 def this_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=7):
     ## this
     allthis = np.argmax(input_cap[:,:25],axis=1) == detidx
-    nidx = np.arange(len(pred_bb))[allthis]
+    nidx = np.arange(len(gt_bb))[allthis]
     for n in nidx:
         objroi = np.argmax(input_cap[n, 25:])
         presentobj = input_bb[n, :, 4] > 0
@@ -482,7 +519,7 @@ def this_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
 def that_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
     ## that
     alldet = np.argmax(input_cap[:,:25],axis=1) == detidx
-    nidx = np.arange(len(pred_bb))[alldet]
+    nidx = np.arange(len(gt_bb))[alldet]
     for n in nidx:
         objroi = np.argmax(input_cap[n, 25:])
         presentobj = input_bb[n, :, 4] > 0
@@ -523,7 +560,7 @@ def that_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
 def these_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9):
     ## these
     allthese = np.argmax(input_cap[:,:25],axis=1) == detidx
-    nidx = np.arange(len(pred_bb))[allthese]
+    nidx = np.arange(len(gt_bb))[allthese]
     for n in nidx:
         objroi = np.argmax(input_cap[n, 25:])
         presentobj = input_bb[n, :, 4] > 0
@@ -577,7 +614,7 @@ def these_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, deti
 def those_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=10):
     ## those
     allthose = np.argmax(input_cap[:,:25],axis=1) == detidx
-    nidx = np.arange(len(pred_bb))[allthose]
+    nidx = np.arange(len(gt_bb))[allthose]
     for n in nidx:
         objroi = np.argmax(input_cap[n, 25:])
         presentobj = input_bb[n, :, 4] > 0
@@ -615,7 +652,7 @@ def those_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, deti
             remainsoln = np.delete(np.arange(len(correct_those_bbs)), gtbbsel)
             idx = np.random.choice(remainsoln,1,replace=False)
             gtbb = np.concatenate([gtbb, correct_those_bbs[idx]],axis=0)
-            print('adding soln to those')
+            #print('adding soln to those')
         assert len(gtbb) > 1
         pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
         gt_bb[n] = pad_gtbb

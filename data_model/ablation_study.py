@@ -173,7 +173,7 @@ model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',r
 model.predict([np.zeros([1,420]),np.zeros([1,41])])
 
 #model.load_weights("ns_mw_det_noun.h5")
-model.load_weights("ns_mw.h5")
+model.load_weights("ns_mw_det.h5")
 
 model.summary()
 
@@ -187,21 +187,28 @@ examples = test_dataset.map(parse_tfrecord_fn, num_parallel_calls=AUTOTUNE)
 results = []
 
 for i, example in enumerate(examples):
+    if i == 2:
+        print(example['image_id'])
+        print(example['caption'])
+        print(np.argmax(example["caption_one_hot"][:25])) # det
+        print(np.argmax(example["caption_one_hot"][25:]))  # obj
+        print(np.argmax(example["input_one_hot"][:,5:],axis=1))  # det
+        print(example["output_bboxes"][:,:4])
 
     inputs, outputs = map_to_inputs(example)
 
     mask = np.ones_like(inputs[1])
-    #mask[25:] = 0
+    mask[25:] = 0
     masked_inputs = tf.multiply(inputs[1], mask)
 
     #inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(inputs[1], axis=0)
-    #inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(masked_inputs, axis=0)
+    inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(masked_inputs, axis=0)
 
-    #[rfr, pred_ts_score] = model(inputs)
-    #pred_ts_score = pred_ts_score.numpy()
+    [rfr, pred_ts_score] = model(inputs)
+    pred_ts_score = pred_ts_score.numpy()
 
     #[pred_ts_score, pred_ts_cls] = pred[0].numpy(), pred[1].numpy()
-    #pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_ts_score > 0.5)[:, :, None])
+    pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_ts_score > 0.5)[:, :, None])
 
     # santiy check
     # objroi = np.argmax(example["caption_one_hot"].numpy()[25:])
@@ -211,14 +218,15 @@ for i, example in enumerate(examples):
     # pred_ts_bb = [allbb[targetidx]]
     # pred_ts_score = [1*targetidx]
 
-    pred_ts_bb = [example["input_one_hot"].numpy()[:, :4]]
-    pred_ts_score = [example["input_one_hot"].numpy()[:, 4]]
-    #pred_ts_bb = [example["output_bboxes"].numpy()[:, :4]]
+    #pred_ts_bb = [example["input_one_hot"].numpy()[:, :4]]
+    #pred_ts_score = [example["input_one_hot"].numpy()[:, 4]]
+    pred_ts_bb = [example["output_bboxes"].numpy()[:, :4]]
+    pred_ts_score = [np.ones([len(pred_ts_bb[0])])]
 
     category_id = 1
     #bboxes = example["input_one_hot"].numpy()[:, :4]
 
-    for idx in np.arange(len(pred_ts_bb[0])): #np.arange(20)[pred_tr_score[0] > 0.5]:
+    for idx in range(len(pred_ts_bb[0])): #np.arange(20)[pred_ts_score[0] > 0.5]:
         bbox = pred_ts_bb[0][idx]
         results.append(
             {"image_id": int(example["image_id"].numpy()), "bbox": bbox.tolist(), "category_id": int(category_id),
@@ -230,7 +238,7 @@ json.dump(results, open(os.path.join("ns_results/bb_test_results.json"), "w"))
 import matplotlib.pyplot as plt
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
-from evaluation.eval_det import generate_corrected_gt_json_v2
+from evaluation.eval_det import generate_corrected_gt_json
 
 
 annFile = './annotations/bb_test_annotations.json'
@@ -247,8 +255,8 @@ cocoEval.evaluate()
 cocoEval.accumulate()
 cocoEval.summarize()
 
-
-generate_corrected_gt_json_v2(gt_dir=annFile, results_dir=resFile)
+#
+generate_corrected_gt_json(gt_dir=annFile, results_dir=resFile)
 
 modannFile = './annotations/mod_test_annotations.json'
 modcocoGt = COCO(modannFile)
