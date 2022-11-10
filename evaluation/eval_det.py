@@ -452,11 +452,14 @@ def this_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
         allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: object closer to camera with highest prediction score
-        center = np.array([128.0,256.0])
-        this_thres = 154  # object must be bottom half of RGB image
-        objdist = np.linalg.norm(center - center_coord(allobjbb) , axis=1)
+        #center = np.array([128.0,256.0])
+        this_thres = 113  # object must be bottom half of RGB image
+        #objdist = np.linalg.norm(center - center_coord(allobjbb) , axis=1)
 
-        correct_this_bbs = allobjbb [objdist < this_thres]
+        correct_this_bbs = allobjbb [allobjbb[:,1] < this_thres]
+        if len(correct_this_bbs)<1:
+            correct_this_bbs = gt_bb[n,input_bb[n, :, 4] > 0,:4]
+
         #target_bb = output_bb[n,:,:4]
 
         top1idx = np.argsort(pred_score[n])[::-1][:1]
@@ -489,12 +492,15 @@ def that_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detid
         allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: object closer to camera with highest prediction score
-        center = np.array([128.0,256.0])
-        this_thres = 128  # object must be bottom half of RGB image
+        #center = np.array([128.0,256.0])
+        this_thres = 113  # object must be bottom half of RGB image
 
-        objdist = np.linalg.norm(center - center_coord(allobjbb), axis=1)
+        #objdist = np.linalg.norm(center - center_coord(allobjbb), axis=1)
 
-        correct_that_bbs = allobjbb [objdist > this_thres]
+        correct_that_bbs = allobjbb [allobjbb[:,1] < this_thres]
+        if len(correct_that_bbs)<1:
+            correct_that_bbs = gt_bb[n,input_bb[n, :, 4] > 0,:4]
+
         #target_bb = output_bb[n,:,:4]
 
         top1idx = np.argsort(pred_score[n])[::-1][:1]
@@ -527,22 +533,24 @@ def these_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, deti
         allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: object closer to camera with highest prediction score
-        center = np.array([128.0,256.0])
-        this_thres = 170  # object must be bottom half of RGB image
+        #center = np.array([128.0,256.0])
+        these_thres = 113  # object must be bottom half of RGB image
 
-        objdist = np.linalg.norm(center - center_coord(allobjbb), axis=1)
+        #objdist = np.linalg.norm(center - center_coord(allobjbb), axis=1)
 
-        correct_that_bbs = allobjbb [objdist < this_thres]
+        correct_these_bbs = allobjbb [allobjbb[:,1] > these_thres]
+        if len(correct_these_bbs)<1:
+            correct_these_bbs = gt_bb[n,input_bb[n, :, 4] > 0,:4]
         #target_bb = output_bb[n,:,:4]
 
         critthatidx = np.arange(max_bb)[pred_score[n]>0.5]
         predbb = pred_bb[n, critthatidx]
 
         # check if predicted bb IoU with all 'apple' bb
-        allious = compute_all_ious(correct_that_bbs, predbb)
+        allious = compute_all_ious(correct_these_bbs, predbb)
         if len(allious) == 0:
             print(predbb)
-            print(correct_that_bbs)
+            print(correct_these_bbs)
         gtbbsel = np.argmax(allious,axis=0)
         gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
@@ -553,11 +561,11 @@ def these_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, deti
         #     print('next')
 
         if len(gtbb)<2:
-            remainsoln = np.delete(np.arange(len(correct_that_bbs)), gtbbsel)
+            remainsoln = np.delete(np.arange(len(correct_these_bbs)), gtbbsel)
             if len(remainsoln)<1:
                 print(gtbbsel)
             idx = np.random.choice(remainsoln,1,replace=False)
-            gtbb = np.concatenate([gtbb, correct_that_bbs[idx]],axis=0)
+            gtbb = np.concatenate([gtbb, correct_these_bbs[idx]],axis=0)
             #print('adding soln to these')
 
         assert len(gtbb) >1
@@ -579,30 +587,34 @@ def those_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, deti
         allobjbb = input_bb[n, presentobj, :4][objidx]  # * 256
 
         # logic: object closer to camera with highest prediction score
-        center = np.array([128.0,256.0])
-        this_thres = 128  # object must be bottom half of RGB image
+        # center = np.array([128.0,256.0])
+        # this_thres = 128  # object must be bottom half of RGB image
+        those_thres = 113
 
-        objdist = np.linalg.norm(center - center_coord(allobjbb), axis=1)
+        #objdist = np.linalg.norm(center - center_coord(allobjbb), axis=1)
 
-        correct_that_bbs = allobjbb [objdist > this_thres]
+        correct_those_bbs = allobjbb [allobjbb[:,1] < those_thres]
+        if len(correct_those_bbs)<1:
+            correct_those_bbs = gt_bb[n,input_bb[n, :, 4] > 0,:4]
+
         #target_bb = output_bb[n,:,:4]
 
         critthatidx = np.arange(max_bb)[pred_score[n]>0.5]
         predbb = pred_bb[n, critthatidx]
 
         # check if predicted bb IoU with all 'apple' bb
-        allious = compute_all_ious(correct_that_bbs, predbb)
+        allious = compute_all_ious(correct_those_bbs, predbb)
         if len(allious) == 0:
             print(predbb)
-            print(correct_that_bbs)
+            print(correct_those_bbs)
         gtbbsel = np.argmax(allious,axis=0)
         gtbbsel = np.unique(gtbbsel)
         gtbb = allobjbb[gtbbsel]
 
         if len(gtbb)<2:
-            remainsoln = np.delete(np.arange(len(correct_that_bbs)), gtbbsel)
+            remainsoln = np.delete(np.arange(len(correct_those_bbs)), gtbbsel)
             idx = np.random.choice(remainsoln,1,replace=False)
-            gtbb = np.concatenate([gtbb, correct_that_bbs[idx]],axis=0)
+            gtbb = np.concatenate([gtbb, correct_those_bbs[idx]],axis=0)
             print('adding soln to those')
         assert len(gtbb) > 1
         pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]

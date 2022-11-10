@@ -172,6 +172,7 @@ loss_fn = tf.keras.losses.BinaryCrossentropy()
 model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=True)
 model.predict([np.zeros([1,420]),np.zeros([1,41])])
 
+#model.load_weights("ns_mw_det_noun.h5")
 model.load_weights("ns_mw.h5")
 
 model.summary()
@@ -194,22 +195,34 @@ for i, example in enumerate(examples):
     masked_inputs = tf.multiply(inputs[1], mask)
 
     #inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(inputs[1], axis=0)
-    inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(masked_inputs, axis=0)
+    #inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(masked_inputs, axis=0)
 
-    [rfr, pred_tr_score] = model(inputs)
-    pred_tr_score = pred_tr_score.numpy()
+    #[rfr, pred_ts_score] = model(inputs)
+    #pred_ts_score = pred_ts_score.numpy()
 
-    #[pred_tr_score, pred_tr_cls] = pred[0].numpy(), pred[1].numpy()
-    pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_tr_score > 0.5)[:, :, None])
+    #[pred_ts_score, pred_ts_cls] = pred[0].numpy(), pred[1].numpy()
+    #pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_ts_score > 0.5)[:, :, None])
+
+    # santiy check
+    # objroi = np.argmax(example["caption_one_hot"].numpy()[25:])
+    # allbb = example["input_one_hot"].numpy()[:, :4]
+    # allobj = example["input_one_hot"].numpy()[:, 5:]
+    # targetidx = np.argmax(allobj,axis=1)==objroi
+    # pred_ts_bb = [allbb[targetidx]]
+    # pred_ts_score = [1*targetidx]
+
+    pred_ts_bb = [example["input_one_hot"].numpy()[:, :4]]
+    pred_ts_score = [example["input_one_hot"].numpy()[:, 4]]
+    #pred_ts_bb = [example["output_bboxes"].numpy()[:, :4]]
 
     category_id = 1
     #bboxes = example["input_one_hot"].numpy()[:, :4]
 
-    for idx in np.arange(20)[pred_tr_score[0] > 0.5]:
+    for idx in np.arange(len(pred_ts_bb[0])): #np.arange(20)[pred_tr_score[0] > 0.5]:
         bbox = pred_ts_bb[0][idx]
         results.append(
             {"image_id": int(example["image_id"].numpy()), "bbox": bbox.tolist(), "category_id": int(category_id),
-             "score": float(pred_tr_score[0][idx])})
+             "score": float(pred_ts_score[0][idx])})
 
 
 json.dump(results, open(os.path.join("ns_results/bb_test_results.json"), "w"))
