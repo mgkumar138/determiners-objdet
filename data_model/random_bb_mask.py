@@ -13,6 +13,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Concatenate, Conv2D, Dense, Flatten
 from backend.utils import custom_loss, create_output_txt, saveload
+from evaluation.eval_det import generate_corrected_gt_json_v2
 
 # # Determiners Dataset baseline model
 
@@ -138,15 +139,15 @@ class SimpleBboxSelector(tf.keras.Model):
     def call(self,inputs):
 
         bbs = self.ran_sel(shape=(len(inputs[0]),maxbb), minval=0,maxval=1)
-        det = tf.cast(inputs[1][:,:nclass],dtype=tf.float32)
-        return [bbs, det]
+        #det = tf.cast(inputs[1][:,:nclass],dtype=tf.float32)
+        return bbs
 
 # In[44]:
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 loss_fn = [tf.keras.losses.BinaryCrossentropy(), tf.keras.losses.CategoricalCrossentropy()]
 model = SimpleBboxSelector()
-model.compile(optimizer=optimizer, loss=loss_fn, metrics=['binary_crossentropy','categorical_crossentropy'],run_eagerly=True)
+model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=False)
 
 # train model on dataset
 epochs = 1
@@ -191,18 +192,20 @@ for i, example in enumerate(examples):
     if i==155:
         print(example["input_one_hot"])
         anybb = example["input_one_hot"]
+
     inputs, outputs = map_to_inputs(example)
 
     inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(inputs[1], axis=0)
-    pred = model(inputs)
-    [pred_tr_score, pred_tr_cls] = pred[0].numpy(), pred[1].numpy()
+    pred_tr_score = model(inputs)
+    pred_tr_score = pred_tr_score.numpy()
+    #[pred_tr_score, pred_tr_cls] = pred[0].numpy(), pred[1].numpy()
     pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_tr_score > 0.5)[:, :, None])
 
-    category_id = np.argmax(pred_tr_cls)
+    category_id = 1
     #bboxes = example["input_one_hot"].numpy()[:, :4]
 
     pred_bb.append(pred_ts_bb)
-    pred_cls.append(pred_tr_cls)
+    #pred_cls.append(pred_tr_cls)
     pred_score.append(pred_tr_score)
 
     gt_bb.append(np.pad(example["output_bboxes"],((0,20-len(example["output_bboxes"])),(0,0))))
@@ -211,16 +214,15 @@ for i, example in enumerate(examples):
     all_bb.append(np.pad(example["input_one_hot"],((0,20-len(example["input_one_hot"])),(0,0))))
     all_emb.append(example["caption_one_hot"])
 
-    for i, mask in enumerate(list((pred_tr_score > 0.5)[0])):
-        if mask:
-            bbox = pred_ts_bb[0][i]
-            results.append(
-                {"image_id": int(example["image_id"].numpy()), "bbox": bbox.tolist(), "category_id": int(category_id),
-                 "score": float(pred_tr_score[0][i])})
+    for idx in np.arange(20)[pred_tr_score[0] > 0.5]:
+        bbox = pred_ts_bb[0][idx]
+        results.append(
+            {"image_id": int(example["image_id"].numpy()), "bbox": bbox.tolist(), "category_id": int(category_id),
+             "score": float(pred_tr_score[0][idx])})
 
         #     break
 
-print(results)
+#print(results)
 
 # transform ground truth to account multiple solutions
 
@@ -232,8 +234,8 @@ print(results)
 
 
 results_dir = "rand_results"
-split = "test"
-json.dump(results, open(os.path.join("ns_results", f"{split}_results.json"), "w"))
+split = "bb_test"
+json.dump(results, open(os.path.join("rand_results", f"{split}_results.json"), "w"))
 
 # In[47]:
 
@@ -243,12 +245,12 @@ from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
 dataDir = './'
-dataType = 'test'
+dataType = 'bb_test'
 suffix = "annotations"
 annFile = '%s/annotations/%s_%s.json' % (dataDir, dataType, suffix)
 cocoGt = COCO(annFile)
 
-resFile = '%s/ns_results/%s_results.json' % (dataDir, dataType)
+resFile = '%s/rand_results/%s_results.json' % (dataDir, dataType)
 cocoDt = cocoGt.loadRes(resFile)
 
 annType = "bbox"
@@ -258,6 +260,19 @@ cocoEval.params.imgIds = sorted(cocoGt.getImgIds())
 cocoEval.evaluate()
 cocoEval.accumulate()
 cocoEval.summarize()
+
+generate_corrected_gt_json_v2(gt_dir=annFile, results_dir=resFile)
+
+modannFile = '%s/annotations/mod_test_%s.json' % (dataDir, suffix)
+modcocoGt = COCO(modannFile)
+
+print('After correcting annotations')
+cocoEval = COCOeval(modcocoGt, cocoDt, annType)
+cocoEval.params.imgIds = sorted(cocoGt.getImgIds())
+cocoEval.evaluate()
+cocoEval.accumulate()
+cocoEval.summarize()
+
 
 #create_output_txt(gdt=np.array(gt_bb), predt=np.vstack(pred_bb), confi=np.vstack(pred_score),gd_cls=np.array(gt_cls),pred_cls=np.vstack(pred_cls), directory='ns_cls/test_bb_cap')
 #saveload('save','test_predbb_out_v2', [np.vstack(pred_bb),np.vstack(pred_cls),np.vstack(pred_score), np.array(all_bb), np.array(all_emb),np.array(gt_bb)])

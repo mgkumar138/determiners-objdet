@@ -9,7 +9,7 @@ import matplotlib.patches as patches
 
 images, captions, target_bb, objdet_bb, _, sentemb_vec = saveload('load','../dataset_dir/img_cap_bb_mask_matrix_20000',1)
 
-upsampany = True
+upsampany = False
 if upsampany:
     anyidx = (np.argmax(sentemb_vec[:,:20],axis=1)==3)
     otheridx = anyidx^True
@@ -90,8 +90,8 @@ def custom_loss(y_true, y_pred):
 
 nemb = 64
 nhid = 64
-trainwithcaptions = True
-exptname = 'upany{}_classbb_20det_1000exp_bb_clsblb_{}cap_1hid_concat_{}_{}N_bincross'.format(upsampany, trainwithcaptions, nemb, nhid)
+trainwithcaptions = False
+exptname = 'classbb_20det_1000exp_bb_clsblb_{}cap_1hid_concat_{}_{}N_bincross'.format(trainwithcaptions, nemb, nhid)
 
 class SimpleDense(tf.keras.Model):
     def __init__(self):
@@ -120,19 +120,19 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 #loss_fn = [tf.keras.losses.BinaryCrossentropy(), tf.keras.losses.CategoricalCrossentropy()] #tf.keras.losses.MeanSquaredError()
 loss_fn = custom_loss #tf.keras.losses.MeanSquaredError()
 
-epochs = 20
-model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=True)
+epochs = 10
+model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=False)
 if trainwithcaptions:
     history = model.fit(x=[tr_bb_rs,tr_emb],y=tf.concat([tr_out_rs, tr_cls_id],axis=1),
                         validation_data=([val_bb_rs,val_emb],tf.concat([val_out_rs, val_cls_id],axis=1)),
                         epochs=epochs, batch_size=64, validation_split=0.0, shuffle=True)
 else:
-    history = model.fit(x=[tr_bb_rs,np.zeros_like(tr_emb)],y=[tr_out_rs, tr_cls_id],
-                        validation_data=([val_bb_rs,np.zeros_like(val_emb)],[val_out_rs, val_cls_id]),
+    history = model.fit(x=[tr_bb_rs,np.zeros_like(tr_emb)],y=tf.concat([tr_out_rs, tr_cls_id],axis=1),
+                        validation_data=([val_bb_rs,np.zeros_like(val_emb)],tf.concat([val_out_rs, val_cls_id],axis=1)),
                         epochs=epochs, batch_size=64, validation_split=0.0, shuffle=True)
 
 print(model.summary())
-model.save_weights("train_ns_bb_cls_model_weights.h5")
+#model.save_weights("train_ns_bb_cls_model_weights.h5")
 
 
 # train data
@@ -157,14 +157,14 @@ pred_ts_out = model.predict([ts_bb_rs,ts_emb])
 [pred_ts_score, pred_ts_cls] = pred_ts_out[:,:20], pred_ts_out[:,20:]
 pred_ts_bbcap = (ts_bb[:,:,:4] * (pred_ts_score> 0.5)[:,:,None]) * 256.0
 test_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=ts_out_rs, y_pred=pred_ts_score, from_logits=False))
-#create_output_txt(gdt=ts_out, predt=pred_ts_bbcap, confi=pred_ts_score,gd_cls=ts_cls_id,pred_cls=pred_ts_cls, directory='ns_cls_any/test_bb_cap')
+create_output_txt(gdt=ts_out, predt=pred_ts_bbcap, confi=pred_ts_score,gd_cls=ts_cls_id,pred_cls=pred_ts_cls, directory='ns_cls_nocap/test_bb_cap')
 
 # test with bb but no captions
 pred_ts_out_npcap = model.predict([ts_bb_rs,np.zeros_like(ts_emb)])
 [pred_ts_score_nocap, pred_ts_cls_nocap] = pred_ts_out_npcap[:,:20], pred_ts_out_npcap[:,20:]
 pred_ts_bb = (ts_bb[:,:,:4] * (pred_ts_score_nocap> 0.5)[:,:,None]) * 256.0
 test_bcloss_nocap = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=ts_out_rs, y_pred=pred_ts_score_nocap, from_logits=False))
-#create_output_txt(gdt=ts_out, predt=pred_ts_bb, confi=pred_ts_score_nocap,gd_cls=ts_cls_id,pred_cls=pred_ts_cls_nocap, directory='ns_cls_any/test_bb_only')
+create_output_txt(gdt=ts_out, predt=pred_ts_bb, confi=pred_ts_score_nocap,gd_cls=ts_cls_id,pred_cls=pred_ts_cls_nocap, directory='ns_cls_nocap/test_bb_only')
 
 #print(testmap, testmapnocap)
 
@@ -206,4 +206,4 @@ for j in range(2):
 
 plt.tight_layout()
 plt.show()
-f.savefig('../Fig/'+exptname+'.png')
+#f.savefig('../Fig/'+exptname+'.png')

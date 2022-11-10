@@ -153,8 +153,8 @@ example = next(iter(train_dataset))
 
 ### neural bounding box selector model architecture
 
-nemb = 64
-nhid = 128
+nemb = 128
+nhid = 256
 maxbb = 20
 nclass = 0
 class SimpleBboxSelector(tf.keras.Model):
@@ -197,7 +197,7 @@ elif nclass == 16:
     model.load_weights("model_bb_obj_weights.h5")
     dtype = 'obj'
 else:
-    model.load_weights("model_bb_only_weights.h5")
+    model.load_weights("ns_mw_det_noun.h5")
     dtype = 'only'
 #model.summary()
 
@@ -249,7 +249,8 @@ for p in range(2):
 
 
 titles = ['before','after']
-f,ax = plt.subplots(ncols=1, nrows=2,figsize=(5, 8))
+f,ax = plt.subplots(ncols=1, nrows=3,figsize=(4, 8))
+allcentroids = np.zeros([2,25,2])
 for p in range(2):
     xs = alltrans[p][:,0]
     ys = alltrans[p][:,1]
@@ -264,13 +265,13 @@ for p in range(2):
     for i in range(25):
         #idx = np.argmax(np.argmax(tr_cls_id, axis=1)==i)
         #plt.text(xs[idx], ys[idx], determiners[i], color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.75))
-        centroid = np.mean(alltrans[p][np.argmax(det_cls, axis=1)==i],axis=0)
-        ax[p].annotate(determiners[i], xy=centroid[:2],color='k', fontsize=10, bbox=dict(facecolor='white', alpha=0.3))
+        allcentroids[p,i] = np.mean(alltrans[p][np.argmax(det_cls, axis=1)==i],axis=0)[:2]
+        ax[p].annotate(determiners[i], xy=allcentroids[p,i],color='k', fontsize=8, bbox=dict(facecolor='white', alpha=0.3))
     #plt.legend(determiners)
 
     ax[p].set_xlabel('tSNE_1')
     ax[p].set_ylabel('tSNE_2')
-    ax[p].set_title('Embedding {} training'.format(titles[p]))
+    ax[p].set_title('Embedding {} training'.format(titles[p]), fontsize=10)
     ax[p].spines.right.set_visible(False)
     ax[p].spines.top.set_visible(False)
     #adjust_text(texts, only_move={'points': 'y', 'texts': 'y'}, arrowprops=dict(arrowstyle="->", color='r', lw=0.5))
@@ -282,7 +283,15 @@ for p in range(2):
 #           fancybox=True, shadow=True, ncol=5)
 
 
+
+import scipy.spatial.distance as ssd
+import scipy.cluster.hierarchy as scp
+SimMatrix = np.matmul(allcentroids[1], allcentroids[1].T)/(np.linalg.norm(allcentroids[1],)**2)
+Zw = scp.linkage(1-SimMatrix)
+ax[2].set_title('Clustering determiner centroids', fontsize=10)
+ax[2] = scp.dendrogram(Zw, labels=determiners,leaf_font_size=8, leaf_rotation=90)
+
 f.tight_layout()
 
-plt.savefig('../Fig/tsne_bbonly_vert.jpg'.format(dtype))
+#plt.savefig('../Fig/tsne_bbonly_vert.jpg'.format(dtype))
 plt.show()

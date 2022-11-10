@@ -35,10 +35,10 @@ ts_cls_id = ts_emb[:,:20]
 # output: 20 possible outputs
 
 # custom model
-smoothl1loss = RetinaNetBoxLoss()
+#smoothl1loss = RetinaNetBoxLoss()
 nemb = 64
 nhid = 64
-trainwithcaptions = True
+trainwithcaptions = False
 exptname = 'classbb_20det_1000exp_bb_clsblb_{}cap_2hid_mul_{}_{}N_bincross'.format(trainwithcaptions, nemb, nhid)
 
 class SimpleDense(tf.keras.Model):
@@ -65,7 +65,7 @@ model = SimpleDense()
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 loss_fn = tf.keras.losses.BinaryCrossentropy() #tf.keras.losses.MeanSquaredError()
 
-epochs = 20
+epochs = 10
 model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=False)
 if trainwithcaptions:
     history = model.fit(x=[tr_bb_rs,tr_emb],y=tr_out_rs,validation_data=([val_bb_rs,val_emb],val_out_rs), epochs=epochs, batch_size=64, validation_split=0.0, shuffle=True)
@@ -73,7 +73,7 @@ else:
     history = model.fit(x=[tr_bb_rs,np.zeros_like(tr_emb)],y=tr_out_rs,validation_data=([val_bb_rs,np.zeros_like(val_emb)],val_out_rs), epochs=epochs, batch_size=64, validation_split=0.0, shuffle=True)
 
 print(model.summary())
-model.save_weights("train_nsmodel_weights.h5")
+#model.save_weights("train_nsmodel_weights.h5")
 
 
 # train data
@@ -82,27 +82,27 @@ pred_tr_score = model.predict([tr_bb_rs,tr_emb])
 pred_tr_bbcap = (tr_bb[:,:,:4] * (pred_tr_score> 0.5)[:,:,None]) * 256.0
 #tr_loss = smoothl1loss.call(y_true=tr_out[:,:,:4],y_pred=pred_tr_bbcap)
 train_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=tr_out_rs, y_pred=pred_tr_score, from_logits=False))
-create_output_txt(gdt=tr_out, predt=pred_tr_bbcap, confi=pred_tr_score, directory='ns/train_bb_cap')
+#create_output_txt(gdt=tr_out, predt=pred_tr_bbcap, confi=pred_tr_score, directory='ns/train_bb_cap')
 
 # train data
 val_out[:,:,:4] *= 256.0
 pred_val_score = model.predict([val_bb_rs,val_emb])
 pred_val_bbcap = (val_bb[:,:,:4] * (pred_val_score> 0.5)[:,:,None]) * 256.0
 val_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=val_out_rs, y_pred=pred_val_score, from_logits=False))
-create_output_txt(gdt=val_out, predt=pred_val_bbcap, confi=pred_val_score, directory='ns/val_bb_cap')
+#create_output_txt(gdt=val_out, predt=pred_val_bbcap, confi=pred_val_score, directory='ns/val_bb_cap')
 
 # test with both inputs
 ts_out[:,:,:4] *= 256.0
 pred_ts_score = model.predict([ts_bb_rs,ts_emb])
 pred_ts_bbcap = (ts_bb[:,:,:4] * (pred_ts_score> 0.5)[:,:,None]) * 256.0
 test_bcloss = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=ts_out_rs, y_pred=pred_ts_score, from_logits=False))
-create_output_txt(gdt=ts_out, predt=pred_ts_bbcap, confi=pred_ts_score, directory='ns/test_bb_cap')
+create_output_txt(gdt=ts_out, predt=pred_ts_bbcap, confi=pred_ts_score, directory='ns_nocap/test_bb_cap')
 
 # test with bb but no captions
 pred_ts_score_nocap = model.predict([ts_bb_rs,np.zeros_like(ts_emb)])
 pred_ts_bb = (ts_bb[:,:,:4] * (pred_ts_score_nocap> 0.5)[:,:,None]) * 256.0
 test_bcloss_nocap = tf.reduce_mean(tf.keras.metrics.binary_crossentropy(y_true=ts_out_rs, y_pred=pred_ts_score_nocap, from_logits=False))
-create_output_txt(gdt=ts_out, predt=pred_ts_bb, confi=pred_ts_score_nocap, directory='ns/test_bb_only')
+create_output_txt(gdt=ts_out, predt=pred_ts_bb, confi=pred_ts_score_nocap, directory='ns_nocap/test_bb_only')
 
 #print(testmap, testmapnocap)
 

@@ -338,8 +338,9 @@ def some_many_few_several_half_changegt(max_bb, gt_bb, input_bb, input_cap, pred
                     idx = np.random.choice(remainsoln, lb-len(gtbb), replace=False)
                     gtbb = np.concatenate([gtbb, allobjbb[idx]],axis=0) # atleast 5 bounding boxes
                 else:
-                    descpred = np.argsort(pred_score[n])[::-1][:up]
-                    gtbb = gtbb[descpred]
+                    #descpred = np.argsort(pred_score[n])[::-1][:up]
+                    #gtbb = gtbb[descpred]
+                    gtbb = gtbb[:up]
 
             assert (lb-1)<len(gtbb)<(up+1), print('some, many, few, several wrong gt')
             pad_gtbb = np.pad(gtbb, ((0, max_bb - len(gtbb)), (0, 0)))[None,:]
