@@ -151,12 +151,12 @@ class SimpleBboxSelector(tf.keras.Model):
         #self.det_class = tf.keras.layers.Dense(nclass, activation='softmax', name='det_class')
 
     def call(self,inputs):
-        #mask = np.ones_like(inputs[1])
-        #mask[:,:] = 0
-        #masked_cap = tf.multiply(inputs[1], mask)
+        mask = np.ones_like(inputs[1])
+        mask[:,:] = 0
+        masked_cap = tf.multiply(inputs[1], mask)
 
         bb = self.img_embed(tf.cast(self.flatten(inputs[0]),dtype=tf.float32))
-        c = self.cap_embed(tf.cast(inputs[1],dtype=tf.float32))
+        c = self.cap_embed(tf.cast(masked_cap,dtype=tf.float32))
         bb_c = tf.concat([bb,c],axis=1) # concat/multiply/add
         # bb_c = tf.math.multiply(bb, c)  # concat/multiply/add
         x = self.dense2(self.dense1(bb_c))
@@ -173,7 +173,7 @@ model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',r
 model.predict([np.zeros([1,420]),np.zeros([1,41])])
 
 #model.load_weights("ns_mw_det_noun.h5")
-model.load_weights("ns_mw_det.h5")
+model.load_weights("./modelweights/ns_mw_nocap.h5")
 
 model.summary()
 
@@ -197,18 +197,18 @@ for i, example in enumerate(examples):
 
     inputs, outputs = map_to_inputs(example)
 
-    mask = np.ones_like(inputs[1])
-    mask[25:] = 0
-    masked_inputs = tf.multiply(inputs[1], mask)
+    # mask = np.ones_like(inputs[1])
+    # mask[25:] = 0
+    # masked_inputs = tf.multiply(inputs[1], mask)
 
-    #inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(inputs[1], axis=0)
+    inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(inputs[1], axis=0)
     #inputs = tf.expand_dims(inputs[0], axis=0), tf.expand_dims(masked_inputs, axis=0)
 
-    #[rfr, pred_ts_score] = model(inputs)
-    #pred_ts_score = pred_ts_score.numpy()
+    [rfr, pred_ts_score] = model(inputs)
+    pred_ts_score = pred_ts_score.numpy()
 
     #[pred_ts_score, pred_ts_cls] = pred[0].numpy(), pred[1].numpy()
-    #pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_ts_score > 0.5)[:, :, None])
+    pred_ts_bb = (example["input_one_hot"].numpy()[:, :4] * (pred_ts_score > 0.5)[:, :, None])
 
     # santiy check
     # objroi = np.argmax(example["caption_one_hot"].numpy()[25:])
@@ -220,13 +220,13 @@ for i, example in enumerate(examples):
 
     #pred_ts_bb = [example["input_one_hot"].numpy()[:, :4]]
     #pred_ts_score = [example["input_one_hot"].numpy()[:, 4]]
-    pred_ts_bb = [example["output_bboxes"].numpy()[:, :4]]
-    pred_ts_score = [np.ones([len(pred_ts_bb[0])])]
+    #pred_ts_bb = [example["output_bboxes"].numpy()[:, :4]]
+    #pred_ts_score = [np.ones([len(pred_ts_bb[0])])]
 
     category_id = 1
     #bboxes = example["input_one_hot"].numpy()[:, :4]
 
-    for idx in range(len(pred_ts_bb[0])): #np.arange(20)[pred_ts_score[0] > 0.5]:
+    for idx in np.arange(20)[pred_ts_score[0] > 0.5]:
         bbox = pred_ts_bb[0][idx]
         results.append(
             {"image_id": int(example["image_id"].numpy()), "bbox": bbox.tolist(), "category_id": int(category_id),

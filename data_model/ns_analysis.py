@@ -118,7 +118,7 @@ def map_to_inputs(example):
 # In[41]:
 
 
-train_filenames = tf.io.gfile.glob(f"{tfrecords_dir}/test/*.tfrec")
+train_filenames = tf.io.gfile.glob(f"{tfrecords_dir}/train/*.tfrec")
 print(train_filenames)
 
 train_dataset = tf.data.TFRecordDataset(train_filenames, num_parallel_reads=AUTOTUNE)
@@ -197,7 +197,7 @@ elif nclass == 16:
     model.load_weights("model_bb_obj_weights.h5")
     dtype = 'obj'
 else:
-    model.load_weights("ns_mw_det_noun.h5")
+    model.load_weights("./modelweights/ns_mw_det_noun.h5")
     dtype = 'only'
 #model.summary()
 
@@ -243,7 +243,7 @@ for p in range(2):
     scaler.fit(rfr)
     X = scaler.transform(rfr)
 
-    tsne = TSNE(perplexity=8,learning_rate='auto',init='pca')
+    tsne = TSNE(perplexity=30,learning_rate='auto',init='pca')
     tsn_trans = tsne.fit_transform(X)
     alltrans.append(tsn_trans)
 

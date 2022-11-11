@@ -33,6 +33,9 @@ def bb_intersection_over_union(boxA, boxB):
 def xywh_to_coord(boxes):
     return np.concatenate([boxes[..., :2], boxes[..., :2] + boxes[..., 2:]], axis=-1)
 
+def coord_to_xywh(boxes):
+    return np.concatenate([boxes[..., :2], boxes[..., 2:] - boxes[..., :2]], axis=-1)
+
 
 def compute_all_ious(gtbb,predbb):
     allious = np.zeros([len(gtbb), len(predbb)])
@@ -57,145 +60,8 @@ import itertools
 import operator
 
 
-# def result_json_to_matrix(filename, max_bboxes = 20):
-#     results = json.load(open(os.path.join("results", filename)))
-#     get_attr = operator.attrgetter('image_id')
-# #     print(results)
-#     img_id_grouped = [list(g) for k, g in itertools.groupby(results, lambda x: x["image_id"])]
-#     bboxes = list(map(lambda arr: list(map(lambda y: np.array(y["bbox"]), arr)),img_id_grouped))
-#     prediction_s
-
-#     for i, group in enumerate(bboxes):
-#         for j in range(len(bboxes), group)
-#             bboxes
-
-def generate_corrected_gt_json_v2(gt_dir, results_dir, max_bboxes=20):
-    determiners = ["a", "an", "all", "any", "every", "my", "your", "this", "that", "these", "those", "some", "many",
-                   "few", "both", "neither", "little", "much", "either", "our", "no", "several", "half", "each",
-                   "the"]
-    results = json.load(open(os.path.join(results_dir)))
-    get_attr = operator.attrgetter('image_id')
-    #     print(results)
-    img_id_grouped = [list(g) for k, g in itertools.groupby(results, lambda x: x["image_id"])]
-    bboxes = list(map(lambda arr: list(map(lambda y: np.array(y["bbox"]), arr)), img_id_grouped))
-    scores = list(map(lambda arr: list(map(lambda y: y["score"], arr)), img_id_grouped))
-    labels = list(map(lambda arr: list(map(lambda y: y["category_id"], arr)), img_id_grouped))
-
-    print(len(bboxes))
-    print(len(scores))
-    print(len(labels))
-    for i, group in enumerate(bboxes):
-        for j in range(len(group), max_bboxes):
-            bboxes[i].append(np.array([0, 0, 0, 0]))
-            scores[i].append(0)
-            labels[i].append(0)
-        bboxes[i] = np.array(bboxes[i])
-        scores[i] = np.array(scores[i])
-        labels[i] = np.array(scores[i])
-    bboxes = np.array(bboxes)
-    scores = np.array(scores)
-    labels = np.array(scores)
-
-    inputs = json.load(open(os.path.join(gt_dir)))
-    input_annotations = inputs["input_oracle_annotations"]
-    categories = inputs["categories"]
-    gt_annotations = inputs["annotations"]
-    image_idx = defaultdict(int)
-    idx_to_id = defaultdict(int)
-    gt_bboxes = [[] for i in inputs["images"]]
-    input_bboxes = [[] for i in inputs["images"]]
-    inputs['images'] = sorted(inputs['images'], key=lambda x: x['id'])
-    for i, image in enumerate(inputs["images"]):
-        image_idx[image['id']] = i
-        idx_to_id[i] = [image['id']]
-
-    for ann in gt_annotations:
-        gt_bboxes[image_idx[ann["image_id"]]].append(np.array(ann["bbox"]))
-        #print(image_idx[ann["image_id"]])
-    for ann in input_annotations:
-        category_one_hot = [0 for i in range(len(categories))]
-        category_one_hot[ann["category_id"]] = 1
-        input_bboxes[image_idx[ann["image_id"]]].append(np.array(ann["bbox"] + [1] + category_one_hot))
-
-    for i, group in enumerate(gt_bboxes):
-        for j in range(len(group), max_bboxes):
-            gt_bboxes[i].append(np.array([0, 0, 0, 0]))
-
-    for i, group in enumerate(input_bboxes):
-        for j in range(len(group), max_bboxes):
-            input_bboxes[i].append(np.array([0, 0, 0, 0] + [0] + [0 for i in range(len(categories))]))
-
-    input_bboxes = np.array([np.array(row) for row in input_bboxes])
-    gt_bboxes = np.array([np.array(row) for row in gt_bboxes])
-
-    categories = inputs["categories"]
-    category_one_hot = [0 for i in range(len(categories))]
-    captions = []
-
-    for i, img in enumerate(inputs["images"]):
-        caption = img["caption"]
-        det = caption.split()[0]
-        noun = " ".join(caption.split()[1:])
-        determiners.index(det)
-        noun_id = 0
-        if noun[-1] == "s":
-            noun = noun[:-1]
-        for cat in categories:
-            if cat["name"] == noun:
-                noun_id = cat["id"]
-        det_one_hot = [0 for i in range(len(determiners))]
-        det_one_hot[determiners.index(det)] = 1
-        noun_one_hot = [0 for i in range(len(categories))]
-        noun_one_hot[noun_id] = 1
-        caption_one_hot = det_one_hot + noun_one_hot
-
-        captions.append(caption_one_hot)
-
-    captions = np.array(captions)
-    print("ground truth bboxes shape: ", gt_bboxes.shape)
-    print("input bboxes shape: ", input_bboxes.shape)
-    print("scores shape: ", scores.shape)
-    print("captions shape", captions.shape)
-
-    gt_bboxes = main_change_gt_multiple_soln(gt_bboxes, input_bboxes, captions, scores, bboxes, max_bboxes)
-
-    print(len(gt_bboxes))
-    print(len(gt_annotations))
-    new_bboxes = []
-    new_annotations = []
-    count = 0
-    for i, img_bboxes in enumerate(gt_bboxes):
-        #print(inputs["images"][i]["id"])
-        for bbox in img_bboxes:
-            bbox = list(bbox)
-            bbox = list(map(np.int, bbox))
-            if bbox == [0, 0, 0, 0]:
-                continue
-            else:
-                new_bboxes.append(bbox)
-                new_annotations.append({
-                    "id": count,
-                    "image_id": inputs["images"][i]["id"],
-                    "bbox": bbox,
-                    "area": bbox[2] * bbox[3],
-                    "category_id": 1,
-                    "iscrowd": 0
-                })
-            count += 1
-    #print(new_annotations)
-    print(len(new_bboxes))
-    print("num of new_annotations", len(new_annotations))
-    new_json = {
-        "licenses": inputs["licenses"],
-        "categories": inputs["categories"],
-        "images": inputs["images"],
-        "annotations": new_annotations
-    }
-
-    json.dump(new_json, open(f"./annotations/mod_test_annotations.json", "w"))
-
-
 def generate_corrected_gt_json(gt_dir, results_dir, max_bboxes=20):
+    print('Ensure prediction bounding boxes are in xywh format!')
     results = json.load(open(os.path.join(results_dir)))
     inputs = json.load(open(os.path.join(gt_dir)))
     input_annotations = inputs["input_oracle_annotations"]
@@ -319,12 +185,17 @@ def generate_corrected_gt_json(gt_dir, results_dir, max_bboxes=20):
         "annotations": new_annotations
     }
 
+    print('saving modified ground truth')
     json.dump(new_json, open(f"./annotations/mod_test_annotations.json", "w"))
 
 
-def main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb, max_bb=20):
-    assert gt_bb.shape[0] == pred_bb.shape[0]
-    #gt_bb = np.copy(gt_bb[:,:, :4])
+def main_change_gt_multiple_soln(gt_bbox, input_bb, input_cap, pred_score, pred_bb, max_bb=20):
+    # if predtype == 'coord':
+    #     #print('converting ground truth to coord')
+    #     #pred_bb = coord_to_xywh(pred_bb)
+    #     #gt_bbox = xywh_to_coord(gt_bbox)
+    assert gt_bbox.shape[0] == pred_bb.shape[0]
+    gt_bb = np.copy(gt_bbox[:,:, :4])
     #gt_bb = my_your_changegt(gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[5,6])
     gt_bb = a_an_either_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[0, 1, 18,24])
     gt_bb = any_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=3)
@@ -333,6 +204,7 @@ def main_change_gt_multiple_soln(gt_bb, input_bb, input_cap, pred_score, pred_bb
     #gt_bb = these_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=9)
     #gt_bb = those_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=10)
     gt_bb = some_many_few_several_half_changegt(max_bb, gt_bb, input_bb, input_cap, pred_score, pred_bb, detidx=[11,12,13, 21,22],  lowerbound=[5,8,2,4,-1], upperbound=[6,9,3,7,-1])
+    print('done correcting ground truth')
     return gt_bb
 
 

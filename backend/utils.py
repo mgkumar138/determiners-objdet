@@ -263,6 +263,10 @@ def xywh_to_coord(boxes):
     return np.concatenate([boxes[..., :2], boxes[..., :2] + boxes[..., 2:]], axis=-1)
 
 
+def coord_to_xywh(boxes):
+    return np.concatenate([boxes[..., :2], boxes[..., 2:] - boxes[..., :2]], axis=-1)
+
+
 def bb_intersection_over_union(boxA, boxB):
     # determine the (x, y)-coordinates of the intersection rectangle
     xA = max(boxA[0], boxB[0])

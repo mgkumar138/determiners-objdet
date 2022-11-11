@@ -13,7 +13,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Concatenate, Conv2D, Dense, Flatten
 from backend.utils import custom_loss, create_output_txt, saveload
-from evaluation.eval_det import generate_corrected_gt_json_v2
+from evaluation.eval_det import generate_corrected_gt_json
 
 # # Determiners Dataset baseline model
 
@@ -139,15 +139,17 @@ class SimpleBboxSelector(tf.keras.Model):
     def call(self,inputs):
 
         bbs = self.ran_sel(shape=(len(inputs[0]),maxbb), minval=0,maxval=1)
+        validbb = tf.cast((inputs[0][:,:,4] == 1),dtype=tf.float32)
+        validbbs = tf.multiply(bbs, validbb)
         #det = tf.cast(inputs[1][:,:nclass],dtype=tf.float32)
-        return bbs
+        return validbbs
 
 # In[44]:
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 loss_fn = [tf.keras.losses.BinaryCrossentropy(), tf.keras.losses.CategoricalCrossentropy()]
 model = SimpleBboxSelector()
-model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=False)
+model.compile(optimizer=optimizer, loss=loss_fn, metrics='binary_crossentropy',run_eagerly=True)
 
 # train model on dataset
 epochs = 1
@@ -204,15 +206,15 @@ for i, example in enumerate(examples):
     category_id = 1
     #bboxes = example["input_one_hot"].numpy()[:, :4]
 
-    pred_bb.append(pred_ts_bb)
+    #pred_bb.append(pred_ts_bb)
     #pred_cls.append(pred_tr_cls)
-    pred_score.append(pred_tr_score)
+    #pred_score.append(pred_tr_score)
 
-    gt_bb.append(np.pad(example["output_bboxes"],((0,20-len(example["output_bboxes"])),(0,0))))
-    gt_cls.append(inputs[1][0,:25])
+    #gt_bb.append(np.pad(example["output_bboxes"],((0,20-len(example["output_bboxes"])),(0,0))))
+    #gt_cls.append(inputs[1][0,:25])
 
-    all_bb.append(np.pad(example["input_one_hot"],((0,20-len(example["input_one_hot"])),(0,0))))
-    all_emb.append(example["caption_one_hot"])
+    #all_bb.append(np.pad(example["input_one_hot"],((0,20-len(example["input_one_hot"])),(0,0))))
+    #all_emb.append(example["caption_one_hot"])
 
     for idx in np.arange(20)[pred_tr_score[0] > 0.5]:
         bbox = pred_ts_bb[0][idx]
@@ -261,7 +263,7 @@ cocoEval.evaluate()
 cocoEval.accumulate()
 cocoEval.summarize()
 
-generate_corrected_gt_json_v2(gt_dir=annFile, results_dir=resFile)
+generate_corrected_gt_json(gt_dir=annFile, results_dir=resFile)
 
 modannFile = '%s/annotations/mod_test_%s.json' % (dataDir, suffix)
 modcocoGt = COCO(modannFile)
